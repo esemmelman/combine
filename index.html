@@ -4,15 +4,20 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Combine · Planner</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=2">
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0"></script>
   <script defer src="dayflow-config.js"></script>
-  <script defer src="app.js"></script>
+  <script defer src="planner-sync.js?v=2"></script>
+  <script defer src="app.js?v=2"></script>
 </head>
 <body>
   <header class="top">
     <a class="brand" href="./"><span aria-hidden="true">◫</span> Combine</a>
-    <button id="dayflow-settings" type="button">DayFlow</button>
+    <div class="account-controls">
+      <span id="sync-status" role="status">On this device</span>
+      <button id="account-settings" type="button">Account</button>
+      <button id="dayflow-settings" type="button">DayFlow</button>
+    </div>
   </header>
   <main>
     <aside aria-label="Tasks and projects">
@@ -56,6 +61,17 @@
       <label id="name-field">Name<input name="title" maxlength="180"></label>
       <label id="date-field">Date<input name="date" type="date"></label>
       <label id="time-field">Time <small>(optional)</small><input name="time" type="time"></label>
+      <fieldset id="notes-field">
+        <legend id="notes-label">Notes</legend>
+        <div id="notes-toolbar" class="inline" role="group" aria-label="Text formatting">
+          <button type="button" data-command="bold" aria-label="Bold"><b>B</b></button>
+          <button type="button" data-command="italic" aria-label="Italic"><i>I</i></button>
+          <button type="button" data-command="underline" aria-label="Underline"><u>U</u></button>
+          <button type="button" data-command="insertUnorderedList">Bullets</button>
+          <button type="button" data-command="insertOrderedList">Numbered list</button>
+        </div>
+        <div id="notes" contenteditable="true" role="textbox" aria-multiline="true" aria-labelledby="notes-label"></div>
+      </fieldset>
       <div class="dialog-actions">
         <button type="button" id="remove" class="danger">Delete</button>
         <button type="button" data-close>Cancel</button>
@@ -63,17 +79,25 @@
       </div>
     </form>
   </dialog>
-  <dialog id="dayflow-dialog">
-    <h2>DayFlow</h2>
-    <p id="dayflow-status" role="status"></p>
+  <dialog id="account-dialog" aria-labelledby="account-title">
+    <h2 id="account-title">Account</h2>
+    <p id="account-status" role="status"></p>
     <form id="connect-form">
       <label>DayFlow email<input name="email" type="email" autocomplete="username" required></label>
       <label>Password<input name="password" type="password" autocomplete="current-password" required></label>
-      <button class="primary">Connect account</button>
+      <button class="primary">Sign in</button>
     </form>
     <div id="connected" class="inline" hidden>
-      <button id="refresh">Refresh</button><button id="disconnect">Disconnect</button>
+      <button id="import-local" hidden>Import tasks from this browser</button>
+      <button id="disconnect">Sign out</button>
     </div>
+    <div class="dialog-actions"><button type="button" data-close>Done</button></div>
+  </dialog>
+  <dialog id="dayflow-dialog">
+    <h2>DayFlow</h2>
+    <p id="dayflow-status" role="status"></p>
+    <button id="dayflow-account" type="button">Sign in to DayFlow</button>
+    <button id="refresh" type="button" hidden>Refresh</button>
     <hr>
     <label>Import a DayFlow backup<input id="import" type="file" accept=".json,application/json"></label>
     <p id="import-status" role="status"></p>

@@ -30,7 +30,8 @@ function readStorage(key, fallback) {
   }
 }
 
-const state = readStorage(storageKey, { tasks: [], projects: [], backup: [] });
+const device = readStorage(storageKey, { ...emptyPlanner(), backup: [] });
+let state = device;
 let selected = new Date();
 let view = 'days';
 let editing;
@@ -40,6 +41,10 @@ let remoteRequest = 0;
 const editor = byId('editor');
 const editForm = byId('edit-form');
 const calendarBody = byId('calendar-body');
+const notes = byId('notes');
+let noteSelection;
+let syncing = false;
+let syncAgain = false;
 
 function element(tag, className, text) {
   const item = document.createElement(tag);
@@ -56,18 +61,28 @@ function button(text, label, action, className) {
   return item;
 }
 
-function save() {
+function saveDevice() {
   try {
-    localStorage.setItem(storageKey, JSON.stringify(state));
+    localStorage.setItem(storageKey, JSON.stringify(device));
   } catch {
     alert('Browser storage is unavailable. Your latest changes are available until you close this page.');
   }
 }
 
-function commit() {
-  save();
+function commit(edits) {
+  applyPlannerEdits(state, edits);
+  if (remoteUser) {
+    queuePlannerEdits(remoteUser.id, edits);
+    refreshPlanner();
+  } else {
+    saveDevice();
+  }
   renderSidebar();
   renderCalendar();
+}
+
+function createItem(collection, patch) {
+  return { collection, id: crypto.randomUUID(), patch, create: true };
 }
 
 function wireAdd(form, action) {
@@ -81,9 +96,8 @@ function wireAdd(form, action) {
 }
 
 function addTask(title, projectId) {
-  state.tasks.push({ id: crypto.randomUUID(), title, projectId, date: '', time: '' });
-  commit();
-  byId(projectId ? 'add-' + projectId : 'add-task').elements.title.focus();
+  commit([createItem('tasks', { title, projectId, date: '', time: '' })]);
+  byId(projectId ? 'add-' + projectId : 'add-task')?.elements.title.focus();
 }
 
 wireAdd(byId('add-task'), title => {
@@ -91,9 +105,8 @@ wireAdd(byId('add-task'), title => {
   addTask(title, null);
 });
 wireAdd(byId('add-project'), title => {
-  state.projects.push({ id: crypto.randomUUID(), title });
   byId('add-project').reset();
-  commit();
+  commit([createItem('projects', { title })]);
 });
 
 function draggable(item, task) {
@@ -130,10 +143,14 @@ function renderSidebar() {
     input.setAttribute('aria-label', 'Task name for ' + project.title);
     input.required = true;
     input.maxLength = 180;
+    input.value = byId(form.id)?.elements.title.value || '';
     const submit = element('button', 'primary', '+');
     submit.setAttribute('aria-label', 'Add task to ' + project.title);
     form.append(input, submit);
-    wireAdd(form, title => addTask(title, project.id));
+    wireAdd(form, title => {
+      form.reset();
+      addTask(title, project.id);
+    });
     section.append(heading, form, ...state.tasks.filter(task => task.projectId === project.id).map(taskRow));
     return section;
   });
@@ -141,36 +158,89 @@ function renderSidebar() {
 }
 
 function openEditor(item, kind) {
-  editing = { item, kind };
+  editing = { item: { ...item }, kind };
   const { title, date, time } = editForm.elements;
   byId('edit-title').textContent = kind === 'schedule' ? 'Schedule ' + item.title : kind === 'project' ? 'Edit project' : 'Edit task';
   byId('name-field').hidden = kind === 'schedule';
   byId('date-field').hidden = kind === 'project';
   byId('time-field').hidden = kind === 'project';
+  byId('notes-field').hidden = kind === 'schedule';
   title.required = kind !== 'schedule';
   date.required = kind === 'schedule';
   title.value = item.title;
   date.value = item.date || (kind === 'schedule' ? dateKey(selected) : '');
   time.value = item.time || '';
+  notes.innerHTML = cleanNotes(item.notes || '');
+  noteSelection = null;
   byId('remove').hidden = kind === 'schedule' && !item.date;
   byId('remove').textContent = kind === 'schedule' ? 'Unschedule' : 'Delete';
   editor.showModal();
   (kind === 'schedule' ? date : title).focus();
 }
 
+const noteTags = new Set(['b', 'strong', 'i', 'em', 'u', 'br', 'p', 'div', 'ul', 'ol', 'li']);
+
+function cleanNotes(html) {
+  const source = document.createElement('template');
+  source.innerHTML = html;
+  const output = document.createElement('div');
+  function appendSafe(parent, nodes) {
+    for (const node of nodes) {
+      if (node.nodeType === Node.TEXT_NODE) {
+        parent.append(node.textContent);
+      } else if (node.nodeType === Node.ELEMENT_NODE && !['script', 'style', 'template'].includes(node.localName)) {
+        const destination = noteTags.has(node.localName) ? parent.appendChild(element(node.localName)) : parent;
+        appendSafe(destination, node.childNodes);
+      }
+    }
+  }
+  appendSafe(output, source.content.childNodes);
+  return output.textContent.trim() ? output.innerHTML : '';
+}
+
+document.addEventListener('selectionchange', () => {
+  const selection = document.getSelection();
+  if (selection.rangeCount && notes.contains(selection.anchorNode) && notes.contains(selection.focusNode)) {
+    noteSelection = selection.getRangeAt(0).cloneRange();
+  }
+});
+byId('notes-toolbar').addEventListener('mousedown', event => event.preventDefault());
+byId('notes-toolbar').addEventListener('click', event => {
+  const control = event.target.closest('[data-command]');
+  if (!control) return;
+  notes.focus();
+  if (noteSelection && notes.contains(noteSelection.commonAncestorContainer)) {
+    const selection = document.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(noteSelection);
+  }
+  document.execCommand('styleWithCSS', false, false);
+  document.execCommand(control.dataset.command);
+});
+notes.addEventListener('paste', event => {
+  event.preventDefault();
+  document.execCommand('insertText', false, event.clipboardData.getData('text/plain'));
+});
+notes.addEventListener('drop', event => event.preventDefault());
+
 editForm.addEventListener('submit', event => {
   event.preventDefault();
   const { title, date, time } = editForm.elements;
   if (!title.value.trim()) return;
   const { item, kind } = editing;
-  item.title = title.value.trim();
+  const patch = {};
+  if (kind !== 'schedule') {
+    const safeNotes = cleanNotes(notes.innerHTML);
+    if (title.value.trim() !== item.title) patch.title = title.value.trim();
+    if (safeNotes !== cleanNotes(item.notes || '')) patch.notes = safeNotes;
+  }
   if (kind !== 'project') {
-    item.date = date.value;
-    item.time = item.date ? time.value : '';
-    if (kind === 'schedule') selected = parseDate(item.date);
+    const clock = date.value ? time.value : '';
+    if (date.value !== item.date || clock !== item.time) Object.assign(patch, { date: date.value, time: clock });
   }
   editor.close();
-  commit();
+  if (kind === 'schedule') navigate(parseDate(date.value));
+  if (Object.keys(patch).length) commit([{ collection: kind === 'project' ? 'projects' : 'tasks', id: item.id, patch }]);
 });
 
 byId('remove').addEventListener('click', () => {
@@ -178,16 +248,10 @@ byId('remove').addEventListener('click', () => {
   if (kind === 'project') {
     const hasTasks = state.tasks.some(task => task.projectId === item.id);
     if (hasTasks && !confirm('Delete this project and all of its tasks?')) return;
-    state.projects = state.projects.filter(project => project !== item);
-    state.tasks = state.tasks.filter(task => task.projectId !== item.id);
-  } else if (kind === 'schedule') {
-    item.date = '';
-    item.time = '';
-  } else {
-    state.tasks = state.tasks.filter(task => task !== item);
   }
   editor.close();
-  commit();
+  const patch = kind === 'schedule' ? { date: '', time: '' } : null;
+  commit([{ collection: kind === 'project' ? 'projects' : 'tasks', id: item.id, patch }]);
 });
 
 document.querySelectorAll('[data-close]').forEach(item => {
@@ -209,10 +273,8 @@ function dropTarget(item, date, time) {
     if (!task) return;
     event.preventDefault();
     item.classList.remove('drop-active');
-    task.date = date;
-    task.time = time;
     selected = parseDate(date);
-    commit();
+    commit([{ collection: 'tasks', id: task.id, patch: { date, time } }]);
     byId('notice').textContent = task.title + ' scheduled for ' + date + (time ? ' at ' + timeLabel(minutesOf(time)) : '');
   });
 }
@@ -274,7 +336,7 @@ function dayFlowEvent(item, continued) {
 function renderSchedule(key) {
   const schedule = element('div', 'schedule');
   const tasks = sortedTasks(key);
-  const dayFlowItems = (remoteUser ? remoteItems : state.backup).filter(item => item.date === key);
+  const dayFlowItems = (remoteUser ? remoteItems : device.backup).filter(item => item.date === key);
   for (let minutes = -30; minutes < 1440; minutes += 30) {
     const allDay = minutes < 0;
     const row = element('div', allDay ? 'slot all-day' : 'slot');
@@ -346,6 +408,44 @@ const client = window.supabase?.createClient(settings.url, settings.publishableK
 });
 const dayFlowStatus = byId('dayflow-status');
 const connectForm = byId('connect-form');
+const accountStatus = byId('account-status');
+const syncStatus = byId('sync-status');
+const importedKey = id => 'combine:imported:' + id;
+
+function setPlanner(planner) {
+  if (JSON.stringify(state) === JSON.stringify(planner)) return;
+  state = planner;
+  renderSidebar();
+  renderCalendar();
+}
+
+async function refreshPlanner() {
+  const id = remoteUser?.id;
+  if (!id) return;
+  if (syncing) {
+    syncAgain = true;
+    return;
+  }
+  const isCurrent = () => remoteUser?.id === id;
+  syncing = true;
+  if (pendingPlannerEdits(id).length || syncStatus.textContent !== 'Synced') syncStatus.textContent = 'Syncing…';
+  try {
+    await syncPlanner(client, id, isCurrent, planner => {
+      const pending = pendingPlannerEdits(id);
+      setPlanner(applyPlannerEdits(planner, pending.flatMap(([, edits]) => edits)));
+      syncStatus.textContent = pending.length ? 'Syncing…' : 'Synced';
+      if (pending.length) syncAgain = true;
+    });
+  } catch {
+    if (isCurrent()) syncStatus.textContent = 'Sync unavailable · retrying';
+  } finally {
+    syncing = false;
+    if (syncAgain) {
+      syncAgain = false;
+      refreshPlanner();
+    }
+  }
+}
 
 async function loadDayFlow() {
   if (!remoteUser || view !== 'hours') return;
@@ -378,15 +478,33 @@ async function loadDayFlow() {
 
 function updateAccount(session) {
   const user = session?.user || null;
-  if (remoteUser?.id !== user?.id) {
+  const changed = remoteUser?.id !== user?.id;
+  if (changed) {
     remoteRequest++;
     remoteItems = [];
+    if (editor.open) editor.close();
   }
   remoteUser = user;
   connectForm.hidden = Boolean(user) || !client;
   byId('connected').hidden = !user;
+  byId('dayflow-account').hidden = Boolean(user);
+  byId('refresh').hidden = !user;
+  byId('import-local').hidden = !user || !(device.tasks.length || device.projects.length) ||
+    readStorage(importedKey(user.id), false);
+  accountStatus.textContent = user ? 'Signed in as ' + (user.email || 'your DayFlow account') + '.' :
+    client ? 'Sign in with your DayFlow account to sync tasks, projects, and notes across devices.' :
+      'Sign-in is unavailable. Changes are saved in this browser.';
   dayFlowStatus.textContent = user ? 'Connected to DayFlow.' :
-    client ? 'Connect your DayFlow account to show its calendar.' : 'Account connection is unavailable. You can import a backup below.';
+    client ? 'Sign in to show your DayFlow calendar.' : 'Account connection is unavailable. You can import a backup below.';
+  if (changed) {
+    const planner = user ? readStorage(plannerCacheKey(user.id), emptyPlanner()) : device;
+    if (user) applyPlannerEdits(planner, pendingPlannerEdits(user.id).flatMap(([, edits]) => edits));
+    state = planner;
+    document.querySelectorAll('aside input').forEach(input => { input.value = ''; });
+    renderSidebar();
+  }
+  if (!user) syncStatus.textContent = 'On this device';
+  refreshPlanner();
   renderCalendar();
   loadDayFlow();
 }
@@ -397,18 +515,31 @@ connectForm.onsubmit = async event => {
   const { email, password } = connectForm.elements;
   const submit = connectForm.querySelector('button');
   submit.disabled = true;
-  dayFlowStatus.textContent = 'Connecting…';
+  accountStatus.textContent = 'Signing in…';
   try {
     const { error } = await client.auth.signInWithPassword({ email: email.value.trim(), password: password.value });
     if (error) throw error;
     connectForm.reset();
   } catch (error) {
-    dayFlowStatus.textContent = error.message;
+    accountStatus.textContent = error.message;
   } finally {
     submit.disabled = false;
   }
 };
 
+byId('account-settings').onclick = () => byId('account-dialog').showModal();
+byId('dayflow-account').onclick = () => {
+  byId('dayflow-dialog').close();
+  byId('account-dialog').showModal();
+};
+byId('import-local').onclick = () => {
+  if (!remoteUser) return;
+  const edits = ['projects', 'tasks'].flatMap(collection =>
+    device[collection].map(({ id, ...patch }) => ({ collection, id, patch, create: true })));
+  commit(edits);
+  try { localStorage.setItem(importedKey(remoteUser.id), 'true'); } catch {}
+  byId('import-local').hidden = true;
+};
 byId('dayflow-settings').onclick = () => {
   byId('dayflow-dialog').showModal();
   loadDayFlow();
@@ -419,15 +550,18 @@ byId('refresh').onclick = () => {
 };
 byId('disconnect').onclick = async () => {
   const { error } = await client.auth.signOut({ scope: 'local' });
-  if (error) dayFlowStatus.textContent = error.message;
+  if (error) accountStatus.textContent = error.message;
 };
 window.addEventListener('focus', loadDayFlow);
 window.addEventListener('online', loadDayFlow);
+window.addEventListener('focus', refreshPlanner);
+window.addEventListener('online', refreshPlanner);
+setInterval(() => { if (!document.hidden) refreshPlanner(); }, 15000);
 
 function updateBackupStatus() {
-  byId('clear-import').hidden = !state.backup.length;
-  byId('import-status').textContent = state.backup.length ?
-    state.backup.length + ' dated items saved for use when signed out of DayFlow.' : '';
+  byId('clear-import').hidden = !device.backup.length;
+  byId('import-status').textContent = device.backup.length ?
+    device.backup.length + ' dated items saved in this browser for use when signed out.' : '';
 }
 
 byId('import').onchange = async event => {
@@ -439,10 +573,10 @@ byId('import').onchange = async event => {
     if (!Array.isArray(items) || items.some(item => !item || typeof item.title !== 'string' || item.id == null)) {
       throw new Error('Choose a DayFlow JSON backup.');
     }
-    state.backup = items.map(normalizeDayFlow).filter(Boolean);
-    save();
+    device.backup = items.map(normalizeDayFlow).filter(Boolean);
+    saveDevice();
     updateBackupStatus();
-    if (!state.backup.length) byId('import-status').textContent = 'The backup contains no dated items.';
+    if (!device.backup.length) byId('import-status').textContent = 'The backup contains no dated items.';
     renderCalendar();
   } catch {
     byId('import-status').textContent = 'Could not read this file. Choose a DayFlow JSON backup.';
@@ -451,8 +585,8 @@ byId('import').onchange = async event => {
   }
 };
 byId('clear-import').onclick = () => {
-  state.backup = [];
-  save();
+  device.backup = [];
+  saveDevice();
   updateBackupStatus();
   renderCalendar();
 };
