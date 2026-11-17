@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Combine · Planner</title>
+  <link rel="stylesheet" href="style.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0"></script>
+  <script defer src="dayflow-config.js"></script>
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="./"><span aria-hidden="true">◫</span> Combine</a>
+    <button id="dayflow-settings" type="button">DayFlow</button>
+  </header>
+  <main>
+    <aside aria-label="Tasks and projects">
+      <form id="add-task" class="inline">
+        <input name="title" aria-label="Task name" placeholder="Add a task…" required maxlength="180">
+        <button class="primary" aria-label="Add task">+</button>
+      </form>
+      <div id="tasks"></div>
+      <hr>
+      <h2>Projects</h2>
+      <form id="add-project" class="inline">
+        <input name="title" aria-label="Project name" placeholder="Add a project…" required maxlength="180">
+        <button class="primary" aria-label="Add project">+</button>
+      </form>
+      <div id="projects"></div>
+    </aside>
+    <section class="calendar" aria-labelledby="calendar-title">
+      <div class="calendar-header">
+        <div>
+          <h1 id="calendar-title"></h1>
+          <div class="navigation">
+            <button id="previous" aria-label="Previous dates">←</button>
+            <button id="today">Today</button>
+            <button id="next" aria-label="Next dates">→</button>
+            <label class="date-control"><span class="sr-only">Jump to date</span><input id="date-picker" type="date"></label>
+          </div>
+        </div>
+        <div class="views" aria-label="Calendar view">
+          <button id="days" aria-pressed="true">Day to day</button>
+          <button id="hours" aria-pressed="false">Half-hour</button>
+        </div>
+      </div>
+      <div id="legend" hidden><span><i class="planner"></i> Tasks</span><span><i class="dayflow"></i> DayFlow</span></div>
+      <div id="calendar-body"></div>
+    </section>
+  </main>
+  <div id="notice" class="sr-only" role="status"></div>
+  <dialog id="editor">
+    <form id="edit-form">
+      <h2 id="edit-title"></h2>
+      <label id="name-field">Name<input name="title" maxlength="180"></label>
+      <label id="date-field">Date<input name="date" type="date"></label>
+      <label id="time-field">Time <small>(optional)</small><input name="time" type="time"></label>
+      <div class="dialog-actions">
+        <button type="button" id="remove" class="danger">Delete</button>
+        <button type="button" data-close>Cancel</button>
+        <button class="primary">Save</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="dayflow-dialog">
+    <h2>DayFlow</h2>
+    <p id="dayflow-status" role="status"></p>
+    <form id="connect-form">
+      <label>DayFlow email<input name="email" type="email" autocomplete="username" required></label>
+      <label>Password<input name="password" type="password" autocomplete="current-password" required></label>
+      <button class="primary">Connect account</button>
+    </form>
+    <div id="connected" class="inline" hidden>
+      <button id="refresh">Refresh</button><button id="disconnect">Disconnect</button>
+    </div>
+    <hr>
+    <label>Import a DayFlow backup<input id="import" type="file" accept=".json,application/json"></label>
+    <p id="import-status" role="status"></p>
+    <div class="dialog-actions"><button type="button" id="clear-import" class="danger" hidden>Clear backup</button><button type="button" data-close>Done</button></div>
+  </dialog>
+</body>
+</html>
