@@ -37,9 +37,9 @@ aside h2 { font-size: 1rem; }
 .task, .project-title { display: flex; align-items: center; gap: .35rem; margin-top: .35rem; }
 .task { padding: .32rem .35rem; background: #f7f6ff; border-radius: 8px; cursor: grab; }
 .task:active { cursor: grabbing; }
-.task-name, .project-name { min-width: 0; flex: 1; overflow-wrap: anywhere; }
+.task-name, .project-name { min-width: 0; flex: 1; padding: 0; border: 0; background: transparent; text-align: left; white-space: normal; overflow-wrap: anywhere; }
+.task-name:hover, .project-name:hover { text-decoration: underline; }
 .grip { color: var(--accent); }
-.icon { padding: .15rem .4rem; color: var(--accent); }
 .project { border: 1px solid var(--line); border-radius: 10px; padding: .65rem; margin-top: .65rem; }
 .project-title { margin: 0; cursor: grab; }
 .project-body { margin-top: .5rem; }

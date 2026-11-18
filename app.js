@@ -215,9 +215,7 @@ function taskRow(task) {
   const row = element('div', 'task');
   const grip = element('span', 'grip', '⠿');
   grip.setAttribute('aria-hidden', 'true');
-  row.append(grip, element('span', 'task-name', task.title),
-    button('＋', 'Schedule ' + task.title, () => openEditor(task, 'schedule'), 'icon'),
-    button('✎', 'Edit ' + task.title, () => openEditor(task, 'task'), 'icon'));
+  row.append(grip, button(task.title, null, () => openEditor(task, 'tasks'), 'task-name'));
   draggable(row, task);
   return row;
 }
@@ -229,25 +227,19 @@ function renderSidebar() {
     const heading = element('h3', 'project-title');
     const body = element('div', 'project-body');
     body.id = 'project-body-' + project.id;
-    const toggle = button('', 'Toggle tasks for ' + project.title, () => {
-      if (body.hidden) {
-        collapsedProjects.delete(project.id);
-      } else {
-        collapsedProjects.add(project.id);
-        if (activeDictation?.formId === form.id) activeDictation.cancel();
-      }
-      updateDisclosure();
-    }, 'icon project-toggle');
-    toggle.setAttribute('aria-controls', body.id);
+    const name = button(project.title, null, () => openEditor(project, 'projects'), 'project-name');
+    name.setAttribute('aria-controls', body.id);
     function updateDisclosure() {
       body.hidden = collapsedProjects.has(project.id);
-      toggle.setAttribute('aria-expanded', String(!body.hidden));
-      toggle.textContent = body.hidden ? '▸' : '▾';
+      name.setAttribute('aria-expanded', String(!body.hidden));
     }
     updateDisclosure();
-    heading.append(toggle, element('span', 'project-name', project.title),
-      button('＋', 'Schedule ' + project.title, () => openEditor(project, 'schedule', 'projects'), 'icon'),
-      button('✎', 'Edit project ' + project.title, () => openEditor(project, 'project'), 'icon'));
+    name.addEventListener('pointerenter', event => {
+      if (event.pointerType !== 'mouse') return;
+      setProjectCollapsed(project.id, !body.hidden);
+      updateDisclosure();
+    });
+    heading.append(name);
     draggable(heading, project, 'projects');
     const form = element('form', 'inline');
     form.id = 'add-' + project.id;
@@ -272,26 +264,30 @@ function renderSidebar() {
   byId('projects').replaceChildren(...projects);
 }
 
-function openEditor(item, kind, collection = kind === 'project' ? 'projects' : 'tasks') {
-  editing = { item: { ...item }, kind, collection };
+function setProjectCollapsed(id, collapsed) {
+  if (collapsed) {
+    collapsedProjects.add(id);
+    if (activeDictation?.formId === 'add-' + id) activeDictation.cancel();
+  } else {
+    collapsedProjects.delete(id);
+  }
+}
+
+function openEditor(item, collection) {
+  editing = { item: { ...item }, collection };
   const { title, date, time } = editForm.elements;
-  byId('edit-title').textContent = kind === 'schedule' ? 'Schedule ' + item.title : kind === 'project' ? 'Edit project' : 'Edit task';
-  byId('name-field').hidden = kind === 'schedule';
-  byId('date-field').hidden = kind === 'project';
-  byId('time-field').hidden = kind === 'project';
-  byId('notes-field').hidden = kind === 'schedule';
-  title.required = kind !== 'schedule';
-  date.required = kind === 'schedule';
+  byId('edit-title').textContent = collection === 'projects' ? 'Project properties' : 'Task properties';
   title.value = item.title;
-  date.value = item.date || (kind === 'schedule' ? dateKey(selected) : '');
+  date.value = item.date || '';
   time.value = item.time || '';
   notes.innerHTML = cleanNotes(item.notes || '');
   noteSelection = null;
-  byId('remove').hidden = kind === 'schedule' && !item.date;
-  byId('remove').textContent = kind === 'schedule' ? 'Move to sidebar' : 'Delete';
-  byId('edit-details').hidden = kind !== 'schedule' || !item.date;
+  byId('move-to-sidebar').hidden = !item.date;
+  const toggle = byId('toggle-project-tasks');
+  toggle.hidden = collection !== 'projects' || Boolean(item.date);
+  toggle.textContent = collapsedProjects.has(item.id) ? 'Show tasks' : 'Hide tasks';
   editor.showModal();
-  (kind === 'schedule' ? date : title).focus();
+  title.focus();
 }
 
 const noteTags = new Set(['b', 'strong', 'i', 'em', 'u', 'br', 'p', 'div', 'ul', 'ol', 'li']);
@@ -343,37 +339,40 @@ editForm.addEventListener('submit', event => {
   event.preventDefault();
   const { title, date, time } = editForm.elements;
   if (!title.value.trim()) return;
-  const { item, kind, collection } = editing;
+  const { item, collection } = editing;
   const patch = {};
-  if (kind !== 'schedule') {
-    const safeNotes = cleanNotes(notes.innerHTML);
-    if (title.value.trim() !== item.title) patch.title = title.value.trim();
-    if (safeNotes !== cleanNotes(item.notes || '')) patch.notes = safeNotes;
-  }
-  if (kind !== 'project') {
-    const clock = date.value ? time.value : '';
-    if (date.value !== item.date || clock !== item.time) Object.assign(patch, { date: date.value, time: clock });
-  }
+  const safeNotes = cleanNotes(notes.innerHTML);
+  if (title.value.trim() !== item.title) patch.title = title.value.trim();
+  if (safeNotes !== cleanNotes(item.notes || '')) patch.notes = safeNotes;
+  const clock = date.value ? time.value : '';
+  if (date.value !== (item.date || '') || clock !== (item.time || '')) Object.assign(patch, { date: date.value, time: clock });
   editor.close();
-  if (kind === 'schedule') navigate(parseDate(date.value));
   if (Object.keys(patch).length) commit([{ collection, id: item.id, patch }]);
+  if (patch.date) navigate(parseDate(patch.date));
 });
 
 byId('remove').addEventListener('click', () => {
-  const { item, kind, collection } = editing;
-  if (kind === 'project') {
+  const { item, collection } = editing;
+  if (collection === 'projects') {
     const hasTasks = state.tasks.some(task => task.projectId === item.id);
     if (hasTasks && !confirm('Delete this project and all of its tasks?')) return;
   }
   editor.close();
-  const patch = kind === 'schedule' ? { date: '', time: '' } : null;
-  commit([{ collection, id: item.id, patch }]);
+  commit([{ collection, id: item.id, patch: null }]);
 });
 
-byId('edit-details').addEventListener('click', () => {
+byId('move-to-sidebar').addEventListener('click', () => {
   const { item, collection } = editing;
   editor.close();
-  openEditor(item, collection === 'projects' ? 'project' : 'task');
+  commit([{ collection, id: item.id, patch: { date: '', time: '' } }]);
+});
+
+byId('toggle-project-tasks').addEventListener('click', () => {
+  const { id } = editing.item;
+  editor.close();
+  setProjectCollapsed(id, !collapsedProjects.has(id));
+  renderSidebar();
+  byId('project-body-' + id)?.previousElementSibling.querySelector('button').focus();
 });
 
 document.querySelectorAll('[data-close]').forEach(item => {
@@ -405,7 +404,7 @@ function dropTarget(item, date = '', time = '') {
 }
 
 function plannerEvent({ entry, collection }) {
-  const item = button(entry.title, null, () => openEditor(entry, 'schedule', collection), 'event planner');
+  const item = button(entry.title, null, () => openEditor(entry, collection), 'event planner');
   const details = [collection === 'projects' ? 'Project' : '', entry.time ? timeLabel(minutesOf(entry.time)) : ''].filter(Boolean);
   if (details.length) item.append(element('small', '', details.join(' · ')));
   draggable(item, entry, collection);

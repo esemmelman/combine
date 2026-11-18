@@ -4,11 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Combine · Planner</title>
-  <link rel="stylesheet" href="style.css?v=12">
+  <link rel="stylesheet" href="style.css?v=13">
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0"></script>
   <script defer src="dayflow-config.js"></script>
   <script defer src="planner-sync.js?v=2"></script>
-  <script defer src="app.js?v=10"></script>
+  <script defer src="app.js?v=11"></script>
 </head>
 <body>
   <header class="top">
@@ -28,8 +28,7 @@
       </form>
       <div id="tasks"></div>
       <hr>
-      <h2>Projects</h2>
-      <div id="projects"></div>
+      <div id="projects" role="group" aria-label="Projects"></div>
       <form id="add-project" class="inline">
         <input name="title" aria-label="Project name" placeholder="Add a project…" enterkeyhint="go" required maxlength="180">
       </form>
@@ -53,7 +52,7 @@
   <dialog id="editor">
     <form id="edit-form">
       <h2 id="edit-title"></h2>
-      <label id="name-field">Name<input name="title" maxlength="180"></label>
+      <label id="name-field">Name<input name="title" maxlength="180" required></label>
       <label id="date-field">Date<input name="date" type="date"></label>
       <label id="time-field">Time <small>(optional)</small><input name="time" type="time"></label>
       <fieldset id="notes-field">
@@ -69,7 +68,8 @@
       </fieldset>
       <div class="dialog-actions">
         <button type="button" id="remove" class="danger">Delete</button>
-        <button type="button" id="edit-details" hidden>Edit details</button>
+        <button type="button" id="move-to-sidebar" hidden>Move to sidebar</button>
+        <button type="button" id="toggle-project-tasks" hidden>Hide tasks</button>
         <button type="button" data-close>Cancel</button>
         <button class="primary">Save</button>
       </div>
