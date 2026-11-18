@@ -140,13 +140,12 @@ function renderSidebar() {
     const input = element('input');
     input.name = 'title';
     input.placeholder = 'Add a task…';
+    input.enterKeyHint = 'go';
     input.setAttribute('aria-label', 'Task name for ' + project.title);
     input.required = true;
     input.maxLength = 180;
     input.value = byId(form.id)?.elements.title.value || '';
-    const submit = element('button', 'primary', '+');
-    submit.setAttribute('aria-label', 'Add task to ' + project.title);
-    form.append(input, submit);
+    form.append(input);
     wireAdd(form, title => {
       form.reset();
       addTask(title, project.id);
@@ -345,6 +344,7 @@ function renderSchedule(key) {
     const allDay = hour === null;
     const minutes = hour * 60;
     const slot = element('div', allDay ? 'slot all-day' : 'slot');
+    if (!allDay) slot.dataset.hour = hour;
     const items = element('div', 'slot-items');
     for (const task of tasks) {
       const start = minutesOf(task.time);
@@ -362,7 +362,8 @@ function renderSchedule(key) {
 }
 
 function renderCalendar(resetScroll = false) {
-  const today = dateKey(new Date());
+  const now = new Date();
+  const today = dateKey(now);
   const key = dateKey(selected);
   const weekStart = shift(selected, -((selected.getDay() + 6) % 7));
   const shortDate = { month: 'short', day: 'numeric' };
@@ -378,7 +379,14 @@ function renderCalendar(resetScroll = false) {
   byId('next').setAttribute('aria-label', view === 'days' ? 'Next week' : 'Next day');
   const content = view === 'days' ? renderWeek(weekStart, today) : renderSchedule(key);
   calendarBody.replaceChildren(content);
-  if (view === 'hours' && !resetScroll) content.scrollLeft = scrollLeft;
+  if (view === 'hours') {
+    if (resetScroll) {
+      const hour = Math.max(6, Math.min(22, Math.round(now.getHours() + now.getMinutes() / 60)));
+      content.scrollLeft = content.querySelector(`[data-hour="${hour}"]`).offsetLeft;
+    } else {
+      content.scrollLeft = scrollLeft;
+    }
+  }
 }
 
 function changeView(nextView) {
@@ -542,6 +550,8 @@ byId('import-local').onclick = () => {
   byId('import-local').hidden = true;
 };
 byId('dayflow-settings').onclick = () => {
+  view = 'hours';
+  renderCalendar(true);
   byId('dayflow-dialog').showModal();
   loadDayFlow();
 };
@@ -593,6 +603,6 @@ byId('clear-import').onclick = () => {
 };
 
 renderSidebar();
-renderCalendar();
+renderCalendar(true);
 updateBackupStatus();
 if (!client) updateAccount(null);
