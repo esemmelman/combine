@@ -33,7 +33,7 @@ function readStorage(key, fallback) {
 const device = readStorage(storageKey, { ...emptyPlanner(), backup: [] });
 let state = device;
 let selected = new Date();
-let view = 'days';
+let view = 'hours';
 let editing;
 let remoteItems = [];
 let remoteUser = null;

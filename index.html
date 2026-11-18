@@ -8,7 +8,7 @@
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0"></script>
   <script defer src="dayflow-config.js"></script>
   <script defer src="planner-sync.js?v=2"></script>
-  <script defer src="app.js?v=3"></script>
+  <script defer src="app.js?v=4"></script>
 </head>
 <body>
   <header class="top">
@@ -46,11 +46,11 @@
           </div>
         </div>
         <div class="views" aria-label="Calendar view">
-          <button id="days" aria-pressed="true">Day to day</button>
-          <button id="hours" aria-pressed="false">Times</button>
+          <button id="days" aria-pressed="false">Day to day</button>
+          <button id="hours" aria-pressed="true">Times</button>
         </div>
       </div>
-      <div id="legend" hidden><span><i class="planner"></i> Tasks</span><span><i class="dayflow"></i> DayFlow</span></div>
+      <div id="legend"><span><i class="planner"></i> Tasks</span><span><i class="dayflow"></i> DayFlow</span></div>
       <div id="calendar-body"></div>
     </section>
   </main>
