@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Combine · Planner</title>
-  <link rel="stylesheet" href="style.css?v=23">
+  <link rel="stylesheet" href="style.css?v=24">
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0"></script>
   <script defer src="dayflow-config.js"></script>
   <script defer src="planner-sync.js?v=2"></script>
@@ -30,6 +30,9 @@
     <section class="calendar" aria-labelledby="calendar-title">
       <div id="dictation-status" class="sr-only" role="status"></div>
       <div class="navigation">
+        <form id="add-project" class="inline">
+          <input name="title" aria-label="Project name" enterkeyhint="go" required maxlength="180">
+        </form>
         <button id="previous" aria-label="Previous dates">←</button>
         <button id="next" aria-label="Next dates">→</button>
         <label class="date-control"><span class="sr-only">Jump to date</span><input id="date-picker" type="date"></label>
@@ -39,11 +42,6 @@
         </div>
         <button id="today">Today</button>
         <div id="legend"><span><i class="planner"></i> Tasks</span><span><i class="dayflow"></i> DayFlow</span></div>
-      </div>
-      <div class="entry-forms">
-        <form id="add-project" class="inline">
-          <input name="title" aria-label="Project name" enterkeyhint="go" required maxlength="180">
-        </form>
       </div>
       <div id="calendar-body"></div>
     </section>
