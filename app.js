@@ -489,8 +489,9 @@ function renderGantt(start, today) {
 }
 
 function plannerNamesHeading() {
-  const heading = element('th', 'gantt-names', 'Column A');
+  const heading = element('th', 'gantt-names');
   heading.scope = 'col';
+  heading.append(element('span', 'sr-only', 'Projects and tasks'));
   plannerDropTarget(heading, moveIntoNames);
   return heading;
 }
@@ -614,6 +615,14 @@ function renderSchedule(key) {
   return layout;
 }
 
+function alignStandaloneTaskInput() {
+  const panel = byId('standalone-panel');
+  const row = calendarBody.querySelector('.gantt-project') || calendarBody.querySelector('.gantt tbody tr');
+  if (!row) return;
+  const offset = row.getBoundingClientRect().top - panel.getBoundingClientRect().top;
+  panel.style.setProperty('--task-panel-top', Math.max(0, offset) + 'px');
+}
+
 function renderCalendar(resetScroll = false) {
   renderStandalonePanel();
   const now = new Date();
@@ -632,6 +641,7 @@ function renderCalendar(resetScroll = false) {
   byId('next').setAttribute('aria-label', view === 'days' ? 'Next week' : 'Next day');
   const content = view === 'days' ? renderGantt(weekStart, today) : renderSchedule(key);
   calendarBody.replaceChildren(content);
+  alignStandaloneTaskInput();
   if (view === 'hours') {
     const schedule = content.querySelector('.schedule');
     if (resetScroll) {
@@ -862,6 +872,7 @@ plannerDropTarget(byId('standalone-panel'), (entry, collection) => {
   commit([{ collection, id: entry.id, patch: { date: '', time: '', inGantt: false } }]);
   byId('notice').textContent = entry.title + ' moved to standalone tasks';
 });
+window.addEventListener('resize', alignStandaloneTaskInput);
 renderCalendar(true);
 updateBackupStatus();
 if (!client) updateAccount(null);
