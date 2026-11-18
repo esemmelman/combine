@@ -44,6 +44,7 @@ const editForm = byId('edit-form');
 const calendarBody = byId('calendar-body');
 const notes = byId('notes');
 let noteSelection;
+let activeNote;
 let syncing = false;
 let syncAgain = false;
 let activeDictation;
@@ -294,7 +295,10 @@ function openEditor(item, collection) {
   title.value = item.title;
   date.value = item.date || '';
   time.value = item.time || '';
-  notes.innerHTML = cleanNotes(item.notes || '');
+  notes.replaceChildren();
+  for (const html of noteEntries(item)) addNoteEditor(html);
+  if (!notes.children.length) addNoteEditor();
+  activeNote = notes.querySelector('.note-editor');
   noteSelection = null;
   byId('move-to-sidebar').hidden = !item.date;
   const toggle = byId('toggle-project-tasks');
@@ -324,18 +328,46 @@ function cleanNotes(html) {
   return output.textContent.trim() ? output.innerHTML : '';
 }
 
+function noteEntries(item) {
+  const entries = Array.isArray(item.notes) ? item.notes : [item.notes || ''];
+  return entries.map(cleanNotes).filter(Boolean);
+}
+
+function addNoteEditor(html = '') {
+  const entry = element('div', 'note-entry');
+  const field = element('div', 'note-editor');
+  field.contentEditable = 'true';
+  field.setAttribute('role', 'textbox');
+  field.setAttribute('aria-multiline', 'true');
+  field.setAttribute('aria-label', 'Note');
+  field.innerHTML = html;
+  entry.append(field, button('Remove note', null, () => {
+    entry.remove();
+    noteSelection = null;
+    (notes.querySelector('.note-editor') || addNoteEditor()).focus();
+  }));
+  notes.append(entry);
+  return field;
+}
+
+byId('add-note').addEventListener('click', () => addNoteEditor().focus());
+notes.addEventListener('focusin', event => {
+  if (!event.target.matches('.note-editor')) return;
+  if (activeNote !== event.target) noteSelection = null;
+  activeNote = event.target;
+});
 document.addEventListener('selectionchange', () => {
   const selection = document.getSelection();
-  if (selection.rangeCount && notes.contains(selection.anchorNode) && notes.contains(selection.focusNode)) {
+  if (selection.rangeCount && activeNote?.contains(selection.anchorNode) && activeNote.contains(selection.focusNode)) {
     noteSelection = selection.getRangeAt(0).cloneRange();
   }
 });
 byId('notes-toolbar').addEventListener('mousedown', event => event.preventDefault());
 byId('notes-toolbar').addEventListener('click', event => {
   const control = event.target.closest('[data-command]');
-  if (!control) return;
-  notes.focus();
-  if (noteSelection && notes.contains(noteSelection.commonAncestorContainer)) {
+  if (!control || !activeNote) return;
+  activeNote.focus();
+  if (noteSelection && activeNote.contains(noteSelection.commonAncestorContainer)) {
     const selection = document.getSelection();
     selection.removeAllRanges();
     selection.addRange(noteSelection);
@@ -355,9 +387,9 @@ editForm.addEventListener('submit', event => {
   if (!title.value.trim()) return;
   const { item, collection } = editing;
   const patch = {};
-  const safeNotes = cleanNotes(notes.innerHTML);
+  const safeNotes = [...notes.querySelectorAll('.note-editor')].map(field => cleanNotes(field.innerHTML)).filter(Boolean);
   if (title.value.trim() !== item.title) patch.title = title.value.trim();
-  if (safeNotes !== cleanNotes(item.notes || '')) patch.notes = safeNotes;
+  if (JSON.stringify(safeNotes) !== JSON.stringify(noteEntries(item))) patch.notes = safeNotes;
   const clock = date.value ? time.value : '';
   if (date.value !== (item.date || '') || clock !== (item.time || '')) Object.assign(patch, { date: date.value, time: clock });
   editor.close();
@@ -411,15 +443,16 @@ function dropTarget(item, date = '', time = '') {
     if (!entry || (!date && !entry.date)) return;
     event.preventDefault();
     if (date) selected = parseDate(date);
-    commit([{ collection, id, patch: { date, time } }]);
-    byId('notice').textContent = date ? entry.title + ' scheduled for ' + date + (time ? ' at ' + timeLabel(minutesOf(time)) : '') :
+    const clock = time ?? entry.time ?? '';
+    commit([{ collection, id, patch: { date, time: clock } }]);
+    byId('notice').textContent = date ? entry.title + ' scheduled for ' + date + (clock ? ' at ' + timeLabel(minutesOf(clock)) : '') :
       entry.title + ' moved to the sidebar';
   });
 }
 
-function plannerEvent({ entry, collection }) {
+function plannerEvent({ entry, collection }, showTime = true) {
   const item = button(entry.title, null, () => openEditor(entry, collection), 'event planner');
-  const details = [collection === 'projects' ? 'Project' : '', entry.time ? timeLabel(minutesOf(entry.time)) : ''].filter(Boolean);
+  const details = [collection === 'projects' ? 'Project' : '', showTime && entry.time ? timeLabel(minutesOf(entry.time)) : ''].filter(Boolean);
   if (details.length) item.append(element('small', '', details.join(' · ')));
   draggable(item, entry, collection);
   return item;
@@ -431,23 +464,46 @@ function scheduledEntries(date) {
     .sort((first, second) => (first.entry.time || '').localeCompare(second.entry.time || ''));
 }
 
-function renderWeek(start, today) {
-  const week = element('div', 'week');
-  for (let index = 0; index < 7; index++) {
-    const date = shift(start, index);
-    const key = dateKey(date);
-    const day = element('section', key === dateKey(selected) ? 'day selected' : 'day');
+function renderGantt(start, today) {
+  const chart = element('div', 'gantt-scroll');
+  chart.tabIndex = 0;
+  chart.setAttribute('role', 'region');
+  chart.setAttribute('aria-label', 'Weekly Gantt chart');
+  const table = element('table', 'gantt');
+  const header = table.createTHead().insertRow();
+  const dates = Array.from({ length: 7 }, (_, index) => shift(start, index));
+  const keys = dates.map(dateKey);
+  dates.forEach((date, index) => {
+    const key = keys[index];
+    const cell = element('th');
+    cell.scope = 'col';
     const heading = button(format(date, { weekday: 'short' }), 'Show times for ' + format(date, { dateStyle: 'full' }), () => {
       selected = date;
       changeView('hours');
     }, 'day-heading');
     heading.append(element('span', '', format(date, { month: 'short', day: 'numeric' })));
     if (key === today) heading.setAttribute('aria-current', 'date');
-    day.append(heading, ...scheduledEntries(key).map(plannerEvent));
-    dropTarget(day, key, '');
-    week.append(day);
+    cell.append(heading);
+    header.append(cell);
+    dropTarget(cell, key, null);
+  });
+  const body = table.createTBody();
+  const entries = keys.flatMap(scheduledEntries);
+  for (const scheduled of entries.length ? entries : [null]) {
+    const row = body.insertRow();
+    for (const key of keys) {
+      const cell = row.insertCell();
+      if (key === today) cell.classList.add('current-day');
+      if (scheduled?.entry.date === key) {
+        const bar = plannerEvent(scheduled, false);
+        if (scheduled.collection === 'projects') bar.classList.add('gantt-project');
+        cell.append(bar);
+      }
+      dropTarget(cell, key, null);
+    }
   }
-  return week;
+  chart.append(table);
+  return chart;
 }
 
 function normalizeDayFlow(item) {
@@ -519,7 +575,7 @@ function renderCalendar(resetScroll = false) {
   byId('hours').setAttribute('aria-pressed', String(view === 'hours'));
   byId('previous').setAttribute('aria-label', view === 'days' ? 'Previous week' : 'Previous day');
   byId('next').setAttribute('aria-label', view === 'days' ? 'Next week' : 'Next day');
-  const content = view === 'days' ? renderWeek(weekStart, today) : renderSchedule(key);
+  const content = view === 'days' ? renderGantt(weekStart, today) : renderSchedule(key);
   calendarBody.replaceChildren(content);
   if (view === 'hours') {
     if (resetScroll) {
@@ -528,6 +584,8 @@ function renderCalendar(resetScroll = false) {
     } else {
       content.scrollLeft = scrollLeft;
     }
+  } else if (!resetScroll) {
+    content.scrollLeft = scrollLeft;
   }
 }
 

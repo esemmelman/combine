@@ -4,11 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Combine · Planner</title>
-  <link rel="stylesheet" href="style.css?v=14">
+  <link rel="stylesheet" href="style.css?v=15">
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0"></script>
   <script defer src="dayflow-config.js"></script>
   <script defer src="planner-sync.js?v=2"></script>
-  <script defer src="app.js?v=13"></script>
+  <script defer src="app.js?v=14"></script>
 </head>
 <body>
   <header class="top">
@@ -36,13 +36,13 @@
     <section class="calendar" aria-labelledby="calendar-title">
       <div class="navigation">
         <button id="previous" aria-label="Previous dates">←</button>
-        <button id="today">Today</button>
         <button id="next" aria-label="Next dates">→</button>
         <label class="date-control"><span class="sr-only">Jump to date</span><input id="date-picker" type="date"></label>
         <div class="views" role="group" aria-label="Calendar view">
-          <button id="days" aria-pressed="false">Day to day</button>
+          <button id="days" aria-pressed="false">Gantt</button>
           <button id="hours" aria-pressed="true">Times</button>
         </div>
+        <button id="today">Today</button>
       </div>
       <div id="legend"><span><i class="planner"></i> Tasks</span><span><i class="dayflow"></i> DayFlow</span></div>
       <div id="calendar-body"></div>
@@ -64,7 +64,8 @@
           <button type="button" data-command="insertUnorderedList">Bullets</button>
           <button type="button" data-command="insertOrderedList">Numbered list</button>
         </div>
-        <div id="notes" contenteditable="true" role="textbox" aria-multiline="true" aria-labelledby="notes-label"></div>
+        <div id="notes"></div>
+        <button id="add-note" type="button">Add note</button>
       </fieldset>
       <div class="dialog-actions">
         <button type="button" id="remove" class="danger">Delete</button>
