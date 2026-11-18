@@ -107,6 +107,7 @@ function wireAdd(form, action) {
       activeDictation.cancel();
     } else if (!input.value.trim()) {
       activeDictation?.cancel();
+      input.value = '';
       listenForName(form.id);
     }
   });
@@ -118,10 +119,11 @@ function listenForName(formId) {
   let timer;
   let transcript = '';
   let ended = false;
-  let silenceElapsed = false;
   const session = {
     formId,
     cancel() {
+      const field = byId(formId)?.elements.title;
+      if (field && field.value === transcript) field.value = '';
       finish();
       if (!ended) recognition.abort();
     }
@@ -137,18 +139,13 @@ function listenForName(formId) {
     finish();
     const form = byId(formId);
     const field = form?.elements.title;
-    if (!transcript || !field || field.value.trim()) return;
-    field.value = transcript.slice(0, field.maxLength);
-    form.requestSubmit();
+    if (transcript && field?.value === transcript) form.requestSubmit();
+    if (!ended) recognition.abort();
   }
 
   function waitForSilence() {
     clearTimeout(timer);
-    timer = setTimeout(() => {
-      silenceElapsed = true;
-      if (ended) save();
-      else recognition.stop();
-    }, 3000);
+    timer = setTimeout(save, 3000);
   }
 
   activeDictation = session;
@@ -156,20 +153,30 @@ function listenForName(formId) {
   recognition.continuous = true;
   recognition.interimResults = true;
   status.textContent = 'Listening… Click again to cancel.';
-  recognition.onstart = () => {
-    if (activeDictation === session) waitForSilence();
-  };
-  recognition.onspeechstart = () => {
+  recognition.onsoundstart = recognition.onspeechstart = () => {
     if (activeDictation !== session) return;
     clearTimeout(timer);
     timer = undefined;
   };
+  recognition.onsoundend = () => {
+    if (activeDictation === session && transcript) waitForSilence();
+  };
   recognition.onspeechend = () => {
-    if (activeDictation === session && !silenceElapsed) waitForSilence();
+    if (activeDictation === session && transcript && timer === undefined) waitForSilence();
   };
   recognition.onresult = event => {
     if (activeDictation !== session) return;
-    transcript = Array.from(event.results, result => result[0].transcript.trim()).join(' ').trim();
+    const field = byId(formId)?.elements.title;
+    if (!field || field.value !== transcript) return;
+    const text = Array.from(event.results, result => result[0].transcript.trim()).join(' ').trim().slice(0, field.maxLength);
+    if (text === transcript) return;
+    transcript = text;
+    field.value = text;
+    if (text) waitForSilence();
+    else {
+      clearTimeout(timer);
+      timer = undefined;
+    }
   };
   recognition.onerror = event => {
     if (activeDictation === session && event.error !== 'no-speech') {
@@ -179,7 +186,7 @@ function listenForName(formId) {
   recognition.onend = () => {
     ended = true;
     if (activeDictation !== session) return;
-    if (silenceElapsed) save();
+    if (!transcript) finish();
     else if (timer === undefined) waitForSilence();
   };
   try {
