@@ -42,6 +42,7 @@ aside h2 { font-size: 1rem; }
 .icon { padding: .15rem .4rem; color: var(--accent); }
 .project { border: 1px solid var(--line); border-radius: 10px; padding: .65rem; margin-top: .65rem; }
 .project-title { margin: 0 0 .5rem; cursor: grab; }
+.project > .task + form { margin-top: .35rem; }
 .calendar > .navigation { margin-bottom: .8rem; }
 .navigation, .views { display: flex; flex-wrap: wrap; gap: .35rem; align-items: center; }
 .views { background: #f0eff6; padding: .23rem; border-radius: 10px; }

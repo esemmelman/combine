@@ -245,7 +245,8 @@ function renderSidebar() {
       form.reset();
       addTask(title, project.id);
     });
-    section.append(heading, form, ...state.tasks.filter(task => task.projectId === project.id && !task.date).map(taskRow));
+    const tasks = state.tasks.filter(task => task.projectId === project.id && !task.date);
+    section.append(heading, ...tasks.map(taskRow), form);
     return section;
   });
   byId('projects').replaceChildren(...projects);
