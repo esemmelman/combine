@@ -223,7 +223,6 @@ function projectTaskForm(project) {
   form.id = 'add-' + project.id;
   const input = element('input');
   input.name = 'title';
-  input.placeholder = 'Add a task…';
   input.enterKeyHint = 'go';
   input.setAttribute('aria-label', 'Task name for ' + project.title);
   input.required = true;
