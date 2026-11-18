@@ -48,6 +48,7 @@ h2 { font-size: 1.15rem; }
 .dayflow { background: var(--dayflow); color: #145747; }
 .gantt-scroll { overflow-x: auto; }
 .gantt { width: 100%; border-collapse: collapse; color: #171717; }
+.gantt-scroll > .gantt { width: max-content; }
 .gantt th, .gantt td { border: 1px solid var(--calendar-grid); padding: 0; }
 .gantt thead th { height: 1.65rem; background: var(--calendar-heading); font-size: .8rem; }
 .gantt thead .current-day { background: #ffd8ab; }
@@ -58,7 +59,7 @@ h2 { font-size: 1.15rem; }
 .gantt-row-label form { padding: .15rem .3rem .15rem 0; }
 .gantt-row-label input { width: 12ch; padding: .2rem .3rem; }
 .gantt-project .gantt-row-label { font-weight: 700; }
-.gantt td { position: relative; min-width: 64px; height: 1.75rem; background: #fafafa; }
+.gantt td { position: relative; width: 52px; min-width: 52px; height: 1.75rem; background: #fafafa; }
 .gantt-name, .gantt-date, .gantt-toggle, .gantt-mark { border: 0; border-radius: 0; background: transparent; }
 .gantt-name, .gantt-date { display: block; padding: .2rem .35rem; }
 .gantt-name { max-width: clamp(90px, 27vw, 320px); overflow: hidden; text-align: left; text-overflow: ellipsis; }
