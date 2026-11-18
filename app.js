@@ -241,11 +241,18 @@ function renderSidebar() {
       name.setAttribute('aria-expanded', String(!body.hidden));
     }
     updateDisclosure();
-    name.addEventListener('pointerenter', event => {
-      if (event.pointerType !== 'mouse') return;
-      setProjectCollapsed(project.id, !body.hidden);
-      updateDisclosure();
+    let pointerWasAtRightEdge = false;
+    name.addEventListener('pointermove', event => {
+      if (event.pointerType !== 'mouse' || event.buttons) return;
+      const distanceFromRight = name.getBoundingClientRect().right - event.clientX;
+      const pointerIsAtRightEdge = distanceFromRight >= 0 && distanceFromRight <= 24;
+      if (pointerIsAtRightEdge && !pointerWasAtRightEdge) {
+        setProjectCollapsed(project.id, !body.hidden);
+        updateDisclosure();
+      }
+      pointerWasAtRightEdge = pointerIsAtRightEdge;
     });
+    name.addEventListener('pointerleave', () => { pointerWasAtRightEdge = false; });
     heading.append(name);
     draggable(heading, project, 'projects');
     const form = element('form', 'inline');
