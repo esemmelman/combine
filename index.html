@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Combine · Planner</title>
-  <link rel="stylesheet" href="style.css?v=19">
+  <link rel="stylesheet" href="style.css?v=20">
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0"></script>
   <script defer src="dayflow-config.js"></script>
   <script defer src="planner-sync.js?v=2"></script>
@@ -22,10 +22,10 @@
   </header>
   <main>
     <aside id="standalone-panel" aria-label="Standalone tasks">
-      <div id="standalone-tasks"></div>
       <form id="add-task" class="inline">
         <input name="title" aria-label="Task name" placeholder="Add a task…" enterkeyhint="go" required maxlength="180">
       </form>
+      <div id="standalone-tasks"></div>
     </aside>
     <section class="calendar" aria-labelledby="calendar-title">
       <div id="dictation-status" class="sr-only" role="status"></div>
