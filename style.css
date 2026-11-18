@@ -30,7 +30,7 @@ main { display: grid; grid-template-columns: clamp(135px, 15vw, 180px) minmax(0,
 #standalone-tasks:not(:empty) { margin-bottom: .4rem; }
 .standalone-task { display: block; width: 100%; padding: .25rem .35rem; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; text-align: left; white-space: normal; overflow-wrap: anywhere; cursor: grab; }
 .standalone-task:hover { text-decoration: underline; }
-.calendar > .navigation, .calendar > .entry-forms, .calendar > #legend { margin-inline: .8rem; }
+.calendar > .navigation, .calendar > .entry-forms { margin-inline: .8rem; }
 .entry-forms { display: flex; flex-wrap: wrap; gap: .35rem; margin-bottom: .65rem; }
 .inline { display: flex; gap: .4rem; }
 .inline input { flex: 1; min-width: 0; }
@@ -42,7 +42,7 @@ h2 { font-size: 1.15rem; }
 .views { background: #f0eff6; padding: .23rem; border-radius: 10px; }
 .views button { border-color: transparent; background: transparent; }
 .views [aria-pressed="true"] { background: white; color: var(--accent); border-color: var(--line); font-weight: 650; }
-#legend { display: flex; gap: 1rem; color: var(--muted); font-size: .87rem; margin-bottom: .55rem; }
+#legend { display: flex; gap: .65rem; margin-inline-start: .35rem; color: var(--muted); font-size: .87rem; }
 #legend i { display: inline-block; width: .75rem; height: .75rem; border-radius: 3px; margin-right: .28rem; vertical-align: -.03rem; }
 .planner { background: var(--planner); color: #332575; }
 .dayflow { background: var(--dayflow); color: #145747; }
@@ -52,7 +52,7 @@ h2 { font-size: 1.15rem; }
 .gantt thead th { height: 1.65rem; background: var(--calendar-heading); font-size: .8rem; }
 .gantt thead .current-day { background: #ffd8ab; }
 .gantt .gantt-names, .gantt-row-label { position: sticky; left: 0; z-index: 1; }
-.gantt .gantt-names { width: 1%; }
+.gantt .gantt-names { width: 1%; padding-inline: .4rem; white-space: nowrap; }
 .gantt .gantt-row-label { padding-left: 1.55rem; background: #fff; text-align: left; font-weight: 400; }
 .gantt .gantt-child .gantt-row-label { padding-left: 2.15rem; }
 .gantt-row-label form { padding: .15rem .3rem .15rem 0; }
@@ -66,11 +66,16 @@ h2 { font-size: 1.15rem; }
 .gantt-name:hover, .gantt-date:hover { text-decoration: underline; }
 .gantt-toggle { position: absolute; left: .2rem; top: 0; bottom: 0; width: 1.45rem; padding: 0; }
 .gantt-mark { position: absolute; inset: 0; width: 100%; background: #e41f26; }
-.schedule { --slot-width: 125px; position: relative; display: flex; overflow-x: auto; border: 1px solid var(--calendar-grid); }
+.times-layout { display: grid; grid-template-columns: max-content minmax(0, 1fr); align-items: start; }
+.times-names { width: auto; }
+.schedule { --slot-width: 125px; position: relative; display: flex; overflow-x: auto; border-block: 1px solid var(--calendar-grid); }
 .schedule::after { content: ''; flex: 0 0 max(0px, calc(100% - var(--slot-width))); }
-.slot { flex: 0 0 var(--slot-width); min-width: 0; min-height: 12rem; border-right: 1px solid var(--calendar-grid); background: #fafafa; }
-.slot-label { padding: .25rem .35rem; border-bottom: 1px solid var(--calendar-grid); background: var(--calendar-heading); color: #171717; font-size: .8rem; font-weight: 650; text-align: center; }
-.slot-items { display: grid; gap: .3rem; padding: .35rem; }
+.times-grid { display: grid; grid-auto-flow: column; grid-auto-columns: var(--slot-width); grid-template-rows: 1.65rem repeat(var(--time-rows), minmax(2.6rem, auto)); }
+.slot { display: grid; grid-row: 1 / -1; grid-template-rows: subgrid; min-width: 0; border-right: 1px solid var(--calendar-grid); background: #fafafa; }
+.slot-label { display: grid; place-items: center; border-bottom: 1px solid var(--calendar-grid); background: var(--calendar-heading); color: #171717; font-size: .8rem; font-weight: 650; }
+.time-cell { padding: .25rem; border-bottom: 1px solid var(--calendar-grid); min-width: 0; }
+.time-cell:last-child { border-bottom: 0; }
+.time-cell > .event { display: block; width: 100%; }
 .event { border: 0; border-left: 3px solid var(--accent); border-radius: 5px; padding: .25rem .45rem; font-size: .84rem; text-align: left; white-space: normal; overflow-wrap: anywhere; max-width: 100%; }
 .event.dayflow { border-color: #248369; }
 .event small { display: block; }

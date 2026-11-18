@@ -4,11 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Combine · Planner</title>
-  <link rel="stylesheet" href="style.css?v=18">
+  <link rel="stylesheet" href="style.css?v=19">
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0"></script>
   <script defer src="dayflow-config.js"></script>
   <script defer src="planner-sync.js?v=2"></script>
-  <script defer src="app.js?v=17"></script>
+  <script defer src="app.js?v=18"></script>
 </head>
 <body>
   <header class="top">
@@ -38,13 +38,13 @@
           <button id="hours" aria-pressed="true">Times</button>
         </div>
         <button id="today">Today</button>
+        <div id="legend"><span><i class="planner"></i> Tasks</span><span><i class="dayflow"></i> DayFlow</span></div>
       </div>
       <div class="entry-forms">
         <form id="add-project" class="inline">
           <input name="title" aria-label="Project name" placeholder="Add a project…" enterkeyhint="go" required maxlength="180">
         </form>
       </div>
-      <div id="legend"><span><i class="planner"></i> Tasks</span><span><i class="dayflow"></i> DayFlow</span></div>
       <div id="calendar-body"></div>
     </section>
   </main>

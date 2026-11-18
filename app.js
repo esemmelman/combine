@@ -251,7 +251,7 @@ function openEditor(item, collection) {
   noteSelection = null;
   byId('unschedule').hidden = !item.date;
   const toggle = byId('toggle-project-tasks');
-  toggle.hidden = collection !== 'projects' || view !== 'days';
+  toggle.hidden = collection !== 'projects';
   toggle.textContent = collapsedProjects.has(item.id) ? 'Show tasks' : 'Hide tasks';
   editor.showModal();
   title.focus();
@@ -373,7 +373,7 @@ document.querySelectorAll('[data-close]').forEach(item => {
   item.addEventListener('click', () => item.closest('dialog').close());
 });
 
-function dropTarget(item, date = '', time = '', accepts = () => true) {
+function plannerDropTarget(item, onDrop) {
   item.addEventListener('dragover', event => {
     if (!Array.from(event.dataTransfer.types).includes(dragType)) return;
     event.preventDefault();
@@ -388,14 +388,28 @@ function dropTarget(item, date = '', time = '', accepts = () => true) {
     const [collection, id] = event.dataTransfer.getData(dragType).split('/');
     if (collection !== 'tasks' && collection !== 'projects') return;
     const entry = state[collection].find(entry => entry.id === id);
-    if (!entry || (!date && !entry.date) || !accepts(entry, collection)) return;
+    if (!entry) return;
     event.preventDefault();
-    if (date) selected = parseDate(date);
-    const clock = time ?? entry.time ?? '';
-    commit([{ collection, id, patch: { date, time: clock } }]);
-    byId('notice').textContent = date ? entry.title + ' scheduled for ' + date + (clock ? ' at ' + timeLabel(minutesOf(clock)) : '') :
-      entry.title + ' unscheduled';
+    onDrop(entry, collection);
   });
+}
+
+function dropTarget(item, date, time) {
+  plannerDropTarget(item, (entry, collection) => {
+    selected = parseDate(date);
+    const clock = time ?? entry.time ?? '';
+    commit([{ collection, id: entry.id, patch: { date, time: clock } }]);
+    byId('notice').textContent = entry.title + ' scheduled for ' + date + (clock ? ' at ' + timeLabel(minutesOf(clock)) : '');
+  });
+}
+
+function moveIntoNames(entry, collection) {
+  const standalone = collection === 'tasks' && standaloneTasks().includes(entry);
+  if (!entry.date && (!standalone || entry.inGantt)) return;
+  const patch = { date: '', time: '' };
+  if (standalone) patch.inGantt = true;
+  commit([{ collection, id: entry.id, patch }]);
+  byId('notice').textContent = entry.title + ' moved to column A';
 }
 
 function plannerEvent({ entry, collection }) {
@@ -418,7 +432,7 @@ function standaloneTasks() {
 }
 
 function renderStandalonePanel() {
-  byId('standalone-tasks').replaceChildren(...standaloneTasks().filter(task => !task.date).map(task => {
+  byId('standalone-tasks').replaceChildren(...standaloneTasks().filter(task => !task.date && !task.inGantt).map(task => {
     const name = button(task.title, null, () => openEditor(task, 'tasks'), 'standalone-task');
     draggable(name, task);
     return name;
@@ -434,10 +448,8 @@ function renderGantt(start, today) {
   const header = table.createTHead();
   const weekdays = header.insertRow();
   const datesRow = header.insertRow();
-  const namesHeading = element('th', 'gantt-names');
-  namesHeading.scope = 'col';
+  const namesHeading = plannerNamesHeading();
   namesHeading.rowSpan = 2;
-  namesHeading.append(element('span', 'sr-only', 'Projects and tasks'));
   weekdays.append(namesHeading);
   const dates = Array.from({ length: 7 }, (_, index) => shift(start, index));
   const keys = dates.map(dateKey);
@@ -476,7 +488,14 @@ function renderGantt(start, today) {
   return chart;
 }
 
-function addPlannerRows(table, addDateCells) {
+function plannerNamesHeading() {
+  const heading = element('th', 'gantt-names', 'Column A');
+  heading.scope = 'col';
+  plannerDropTarget(heading, moveIntoNames);
+  return heading;
+}
+
+function addPlannerRows(table, addDateCells = () => {}) {
   const body = table.createTBody();
   function addRow(entry, collection, child = false) {
     const row = body.insertRow();
@@ -491,11 +510,11 @@ function addPlannerRows(table, addDateCells) {
     row.classList.toggle('gantt-child', child);
     row.classList.toggle('gantt-project', collection === 'projects');
     row.append(label);
-    dropTarget(label);
+    plannerDropTarget(label, moveIntoNames);
     addDateCells(row, entry, collection);
     return row;
   }
-  for (const task of standaloneTasks().filter(task => task.date)) addRow(task, 'tasks');
+  for (const task of standaloneTasks().filter(task => task.date || task.inGantt)) addRow(task, 'tasks');
   for (const project of state.projects) {
     const row = addRow(project, 'projects');
     const children = state.tasks.filter(task => task.projectId === project.id).map(task => addRow(task, 'tasks', true));
@@ -548,6 +567,11 @@ function dayFlowEvent(item, continued) {
 }
 
 function renderSchedule(key) {
+  const layout = element('div', 'times-layout');
+  const names = element('table', 'gantt times-names');
+  names.setAttribute('aria-label', 'Column A, projects and tasks');
+  names.createTHead().insertRow().append(plannerNamesHeading());
+  addPlannerRows(names);
   const schedule = element('div', 'schedule');
   schedule.tabIndex = 0;
   schedule.setAttribute('role', 'region');
@@ -555,25 +579,39 @@ function renderSchedule(key) {
   const entries = scheduledEntries(key);
   const dayFlowItems = (remoteUser ? remoteItems : device.backup).filter(item => item.date === key);
   const hours = Array.from({ length: 17 }, (_, index) => index + 6);
+  const grid = element('div', 'times-grid');
+  const columns = [];
   for (const hour of [null, ...hours]) {
     const allDay = hour === null;
     const minutes = hour * 60;
     const slot = element('div', allDay ? 'slot all-day' : 'slot');
     if (!allDay) slot.dataset.hour = hour;
-    const items = element('div', 'slot-items');
+    const items = [];
     for (const scheduled of entries) {
       const start = minutesOf(scheduled.entry.time);
-      if (allDay ? !scheduled.entry.time : start >= minutes && start < minutes + 60) items.append(plannerEvent(scheduled));
+      if (allDay ? !scheduled.entry.time : start >= minutes && start < minutes + 60) items.push(plannerEvent(scheduled));
     }
     for (const item of dayFlowItems) {
       const occurs = item.start !== null && item.start < minutes + 60 && (item.end ?? item.start + 1) > minutes;
-      if (allDay ? item.start === null : occurs) items.append(dayFlowEvent(item, !allDay && item.start < minutes));
+      if (allDay ? item.start === null : occurs) items.push(dayFlowEvent(item, !allDay && item.start < minutes));
     }
-    slot.append(element('div', 'slot-label', allDay ? 'All day' : timeLabel(minutes)), items);
+    slot.append(element('div', 'slot-label', allDay ? 'All day' : timeLabel(minutes)));
     dropTarget(slot, key, allDay ? '' : timeValue(minutes));
-    schedule.append(slot);
+    columns.push({ slot, items });
   }
-  return schedule;
+  const rows = Math.max(4, ...columns.map(column => column.items.length));
+  grid.style.setProperty('--time-rows', rows);
+  for (const { slot, items } of columns) {
+    for (let index = 0; index < rows; index++) {
+      const cell = element('div', 'time-cell');
+      if (items[index]) cell.append(items[index]);
+      slot.append(cell);
+    }
+    grid.append(slot);
+  }
+  schedule.append(grid);
+  layout.append(names, schedule);
+  return layout;
 }
 
 function renderCalendar(resetScroll = false) {
@@ -588,7 +626,6 @@ function renderCalendar(resetScroll = false) {
     format(weekStart, shortDate) + ' – ' + format(shift(weekStart, 6), { ...shortDate, year: 'numeric' }) :
     format(selected, { dateStyle: 'full' });
   byId('date-picker').value = key;
-  byId('legend').hidden = view !== 'hours';
   byId('days').setAttribute('aria-pressed', String(view === 'days'));
   byId('hours').setAttribute('aria-pressed', String(view === 'hours'));
   byId('previous').setAttribute('aria-label', view === 'days' ? 'Previous week' : 'Previous day');
@@ -596,11 +633,12 @@ function renderCalendar(resetScroll = false) {
   const content = view === 'days' ? renderGantt(weekStart, today) : renderSchedule(key);
   calendarBody.replaceChildren(content);
   if (view === 'hours') {
+    const schedule = content.querySelector('.schedule');
     if (resetScroll) {
       const hour = Math.max(6, Math.min(22, now.getHours()));
-      content.scrollLeft = content.querySelector(`[data-hour="${hour}"]`).offsetLeft;
+      schedule.scrollLeft = schedule.querySelector(`[data-hour="${hour}"]`).offsetLeft;
     } else {
-      content.scrollLeft = scrollLeft;
+      schedule.scrollLeft = scrollLeft;
     }
   } else if (!resetScroll) {
     content.scrollLeft = scrollLeft;
@@ -819,7 +857,11 @@ byId('clear-import').onclick = () => {
   renderCalendar();
 };
 
-dropTarget(byId('standalone-panel'), '', '', (entry, collection) => collection === 'tasks' && standaloneTasks().includes(entry));
+plannerDropTarget(byId('standalone-panel'), (entry, collection) => {
+  if (collection !== 'tasks' || !standaloneTasks().includes(entry) || !(entry.date || entry.inGantt)) return;
+  commit([{ collection, id: entry.id, patch: { date: '', time: '', inGantt: false } }]);
+  byId('notice').textContent = entry.title + ' moved to standalone tasks';
+});
 renderCalendar(true);
 updateBackupStatus();
 if (!client) updateAccount(null);
