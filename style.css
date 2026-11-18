@@ -41,8 +41,10 @@ aside h2 { font-size: 1rem; }
 .grip { color: var(--accent); }
 .icon { padding: .15rem .4rem; color: var(--accent); }
 .project { border: 1px solid var(--line); border-radius: 10px; padding: .65rem; margin-top: .65rem; }
-.project-title { margin: 0 0 .5rem; cursor: grab; }
-.project > .task + form { margin-top: .35rem; }
+.project-title { margin: 0; cursor: grab; }
+.project-body { margin-top: .5rem; }
+.project-body > .task + form { margin-top: .35rem; }
+#projects:not(:empty) + #add-project { margin-top: .65rem; }
 .calendar > .navigation { margin-bottom: .8rem; }
 .navigation, .views { display: flex; flex-wrap: wrap; gap: .35rem; align-items: center; }
 .views { background: #f0eff6; padding: .23rem; border-radius: 10px; }

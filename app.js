@@ -47,6 +47,7 @@ let noteSelection;
 let syncing = false;
 let syncAgain = false;
 let activeDictation;
+const collapsedProjects = new Set();
 
 function element(tag, className, text) {
   const item = document.createElement(tag);
@@ -226,7 +227,25 @@ function renderSidebar() {
   const projects = state.projects.filter(project => !project.date).map(project => {
     const section = element('section', 'project');
     const heading = element('h3', 'project-title');
-    heading.append(element('span', 'project-name', project.title),
+    const body = element('div', 'project-body');
+    body.id = 'project-body-' + project.id;
+    const toggle = button('', 'Toggle tasks for ' + project.title, () => {
+      if (body.hidden) {
+        collapsedProjects.delete(project.id);
+      } else {
+        collapsedProjects.add(project.id);
+        if (activeDictation?.formId === form.id) activeDictation.cancel();
+      }
+      updateDisclosure();
+    }, 'icon project-toggle');
+    toggle.setAttribute('aria-controls', body.id);
+    function updateDisclosure() {
+      body.hidden = collapsedProjects.has(project.id);
+      toggle.setAttribute('aria-expanded', String(!body.hidden));
+      toggle.textContent = body.hidden ? '▸' : '▾';
+    }
+    updateDisclosure();
+    heading.append(toggle, element('span', 'project-name', project.title),
       button('＋', 'Schedule ' + project.title, () => openEditor(project, 'schedule', 'projects'), 'icon'),
       button('✎', 'Edit project ' + project.title, () => openEditor(project, 'project'), 'icon'));
     draggable(heading, project, 'projects');
@@ -246,7 +265,8 @@ function renderSidebar() {
       addTask(title, project.id);
     });
     const tasks = state.tasks.filter(task => task.projectId === project.id && !task.date);
-    section.append(heading, ...tasks.map(taskRow), form);
+    body.append(...tasks.map(taskRow), form);
+    section.append(heading, body);
     return section;
   });
   byId('projects').replaceChildren(...projects);
