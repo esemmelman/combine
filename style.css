@@ -52,20 +52,24 @@ aside h2 { font-size: 1rem; }
 #legend i { display: inline-block; width: .75rem; height: .75rem; border-radius: 3px; margin-right: .28rem; vertical-align: -.03rem; }
 .planner { background: var(--planner); color: #332575; }
 .dayflow { background: var(--dayflow); color: #145747; }
-.gantt-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 9px; }
-.gantt { width: 100%; min-width: 735px; table-layout: fixed; border-collapse: collapse; }
-.gantt th, .gantt td { border: 1px solid var(--line); padding: .3rem; }
-.gantt th { border-top: 0; background: #fafaff; }
-.gantt th:first-child, .gantt td:first-child { border-left: 0; }
-.gantt th:last-child, .gantt td:last-child { border-right: 0; }
-.gantt tbody tr:last-child td { border-bottom: 0; }
-.gantt td { height: 2.75rem; }
-.gantt .current-day { background: #fafaff; }
-.gantt .event { display: block; width: 100%; }
-.gantt .gantt-project { background: #ddd5fa; border-color: #5941a8; }
-.day-heading { width: 100%; text-align: left; white-space: normal; }
-.day-heading[aria-current="date"] { border-color: #9788dc; }
-.day-heading span { display: block; color: var(--muted); font-size: .8rem; }
+.gantt-scroll { overflow-x: auto; }
+.gantt { --name-width: clamp(145px, 36vw, 480px); width: 100%; min-width: calc(var(--name-width) + 7 * 64px); table-layout: fixed; border-collapse: collapse; color: #171717; }
+.gantt th, .gantt td { border: 1px solid #aaa; padding: 0; }
+.gantt thead th { height: 2.35rem; background: #f1ead3; }
+.gantt thead .current-day { background: #ffd8ab; }
+.gantt .gantt-names, .gantt-row-label { position: sticky; left: 0; z-index: 1; }
+.gantt .gantt-names { width: var(--name-width); }
+.gantt .gantt-row-label { padding-left: 1.8rem; background: #fff; text-align: left; font-weight: 400; }
+.gantt .gantt-child .gantt-row-label { padding-left: 3rem; }
+.gantt-project .gantt-row-label { font-weight: 700; }
+.gantt td { position: relative; height: 1.75rem; background: #fafafa; }
+.gantt-name, .gantt-date, .gantt-toggle, .gantt-mark { border: 0; border-radius: 0; background: transparent; }
+.gantt-name, .gantt-date { display: block; width: 100%; padding: .2rem .35rem; }
+.gantt-name { text-align: left; white-space: normal; overflow-wrap: anywhere; }
+.gantt-date { font-weight: 650; }
+.gantt-name:hover, .gantt-date:hover { text-decoration: underline; }
+.gantt-toggle { position: absolute; left: .2rem; top: 0; bottom: 0; width: 1.45rem; padding: 0; }
+.gantt-mark { position: absolute; inset: 0; width: 100%; background: #e41f26; }
 .schedule { --slot-width: 125px; position: relative; display: flex; overflow-x: auto; border: 1px solid var(--line); border-radius: 9px; }
 .schedule::after { content: ''; flex: 0 0 max(0px, calc(100% - var(--slot-width))); }
 .slot { flex: 0 0 var(--slot-width); min-width: 0; min-height: 12rem; border-right: 1px solid var(--line); }

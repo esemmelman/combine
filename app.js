@@ -49,6 +49,7 @@ let syncing = false;
 let syncAgain = false;
 let activeDictation;
 const collapsedProjects = new Set();
+const collapsedGanttProjects = new Set();
 
 function element(tag, className, text) {
   const item = document.createElement(tag);
@@ -450,9 +451,9 @@ function dropTarget(item, date = '', time = '') {
   });
 }
 
-function plannerEvent({ entry, collection }, showTime = true) {
+function plannerEvent({ entry, collection }) {
   const item = button(entry.title, null, () => openEditor(entry, collection), 'event planner');
-  const details = [collection === 'projects' ? 'Project' : '', showTime && entry.time ? timeLabel(minutesOf(entry.time)) : ''].filter(Boolean);
+  const details = [collection === 'projects' ? 'Project' : '', entry.time ? timeLabel(minutesOf(entry.time)) : ''].filter(Boolean);
   if (details.length) item.append(element('small', '', details.join(' · ')));
   draggable(item, entry, collection);
   return item;
@@ -470,38 +471,81 @@ function renderGantt(start, today) {
   chart.setAttribute('role', 'region');
   chart.setAttribute('aria-label', 'Weekly Gantt chart');
   const table = element('table', 'gantt');
-  const header = table.createTHead().insertRow();
+  const header = table.createTHead();
+  const weekdays = header.insertRow();
+  const datesRow = header.insertRow();
+  const namesHeading = element('th', 'gantt-names');
+  namesHeading.scope = 'col';
+  namesHeading.rowSpan = 2;
+  namesHeading.append(element('span', 'sr-only', 'Projects and tasks'));
+  weekdays.append(namesHeading);
   const dates = Array.from({ length: 7 }, (_, index) => shift(start, index));
   const keys = dates.map(dateKey);
   dates.forEach((date, index) => {
     const key = keys[index];
+    const weekday = element('th', '', format(date, { weekday: 'narrow' }));
     const cell = element('th');
     cell.scope = 'col';
-    const heading = button(format(date, { weekday: 'short' }), 'Show times for ' + format(date, { dateStyle: 'full' }), () => {
+    const heading = button(pad(date.getMonth() + 1) + '-' + pad(date.getDate()), 'Show times for ' + format(date, { dateStyle: 'full' }), () => {
       selected = date;
       changeView('hours');
-    }, 'day-heading');
-    heading.append(element('span', '', format(date, { month: 'short', day: 'numeric' })));
-    if (key === today) heading.setAttribute('aria-current', 'date');
+    }, 'gantt-date');
+    if (key === today) {
+      weekday.classList.add('current-day');
+      cell.classList.add('current-day');
+      heading.setAttribute('aria-current', 'date');
+    }
     cell.append(heading);
-    header.append(cell);
+    weekdays.append(weekday);
+    datesRow.append(cell);
+    dropTarget(weekday, key, null);
     dropTarget(cell, key, null);
   });
   const body = table.createTBody();
-  const entries = keys.flatMap(scheduledEntries);
-  for (const scheduled of entries.length ? entries : [null]) {
+  function addRow(entry, collection, child = false) {
     const row = body.insertRow();
+    const label = element('th', 'gantt-row-label');
+    label.scope = 'row';
+    if (entry) {
+      const name = button(entry.title, null, () => openEditor(entry, collection), 'gantt-name');
+      draggable(name, entry, collection);
+      label.append(name);
+    }
+    row.classList.toggle('gantt-child', child);
+    row.classList.toggle('gantt-project', collection === 'projects');
+    row.append(label);
     for (const key of keys) {
       const cell = row.insertCell();
-      if (key === today) cell.classList.add('current-day');
-      if (scheduled?.entry.date === key) {
-        const bar = plannerEvent(scheduled, false);
-        if (scheduled.collection === 'projects') bar.classList.add('gantt-project');
-        cell.append(bar);
+      if (entry?.date === key) {
+        const mark = button('', entry.title + ', scheduled ' + key, () => openEditor(entry, collection), 'gantt-mark');
+        draggable(mark, entry, collection);
+        cell.append(mark);
       }
       dropTarget(cell, key, null);
     }
+    return row;
   }
+  const projectIds = new Set(state.projects.map(project => project.id));
+  for (const task of state.tasks.filter(task => !projectIds.has(task.projectId))) addRow(task, 'tasks');
+  for (const project of state.projects) {
+    const row = addRow(project, 'projects');
+    const children = state.tasks.filter(task => task.projectId === project.id).map(task => addRow(task, 'tasks', true));
+    if (!children.length) continue;
+    const toggle = button('', 'Toggle tasks for ' + project.title, () => {
+      if (collapsedGanttProjects.has(project.id)) collapsedGanttProjects.delete(project.id);
+      else collapsedGanttProjects.add(project.id);
+      updateDisclosure();
+    }, 'gantt-toggle');
+    function updateDisclosure() {
+      const collapsed = collapsedGanttProjects.has(project.id);
+      toggle.textContent = collapsed ? '›' : '⌄';
+      toggle.setAttribute('aria-expanded', String(!collapsed));
+      children.forEach(child => { child.hidden = collapsed; });
+    }
+    row.firstElementChild.prepend(toggle);
+    updateDisclosure();
+  }
+  if (!body.rows.length) addRow();
   chart.append(table);
   return chart;
 }
