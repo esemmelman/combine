@@ -27,7 +27,6 @@ aside, .calendar { min-width: 0; padding: 1rem; border: 1px solid var(--line); b
 aside { position: sticky; top: 1rem; max-height: calc(100vh - 2rem); overflow: auto; font-size: .88rem; }
 .inline { display: flex; gap: .4rem; }
 .inline input { flex: 1; min-width: 0; }
-.dictate { padding-inline: .4rem; }
 #dictation-status { margin: 0 0 .4rem; color: var(--muted); }
 #dictation-status:empty { margin: 0; }
 hr { border: 0; border-top: 1px solid var(--line); margin: 1rem 0; }

@@ -88,67 +88,104 @@ function createItem(collection, patch) {
 }
 
 function wireAdd(form, action) {
+  const input = form.elements.title;
   form.addEventListener('submit', event => {
     event.preventDefault();
-    const input = form.elements.title;
     const title = input.value.trim();
     if (!title) return;
+    if (activeDictation?.formId === form.id) activeDictation.cancel();
     action(title);
-    if (!activeDictation) byId('dictation-status').textContent = '';
   });
   if (!SpeechRecognition) return;
 
-  const input = form.elements.title;
-  const label = 'Dictate ' + input.getAttribute('aria-label').toLowerCase();
-  const mic = button('Mic', label, () => {
-    if (activeDictation) {
-      if (activeDictation.formId === form.id) activeDictation.recognition.stop();
-      return;
+  input.addEventListener('input', () => {
+    if (activeDictation?.formId === form.id) activeDictation.cancel();
+  });
+  input.addEventListener('click', () => {
+    if (activeDictation?.formId === form.id) {
+      activeDictation.cancel();
+    } else if (!input.value.trim()) {
+      activeDictation?.cancel();
+      listenForName(form.id);
     }
+  });
+}
 
-    const status = byId('dictation-status');
-    const recognition = new SpeechRecognition();
-    recognition.lang = document.documentElement.lang;
-    const originalValue = input.value;
-    activeDictation = { formId: form.id, recognition };
-    mic.textContent = 'Stop';
-    mic.setAttribute('aria-label', 'Stop dictation');
-    status.textContent = 'Listening…';
-
-    recognition.onresult = event => {
-      const field = byId(form.id)?.elements.title;
-      if (!field || field.value !== originalValue) {
-        status.textContent = '';
-        return;
-      }
-      field.value = event.results[0][0].transcript.trim().slice(0, field.maxLength);
-      field.focus();
-      status.textContent = 'Press Enter or Go to save.';
-    };
-    recognition.onerror = () => {
-      status.textContent = 'Dictation failed. Check microphone access or try again.';
-    };
-    recognition.onend = () => {
-      activeDictation = undefined;
-      const currentMic = byId(form.id)?.querySelector('.dictate');
-      if (currentMic) {
-        currentMic.textContent = 'Mic';
-        currentMic.setAttribute('aria-label', label);
-      }
-      if (status.textContent === 'Listening…') status.textContent = '';
-    };
-    try {
-      recognition.start();
-    } catch {
-      recognition.onerror();
-      recognition.onend();
+function listenForName(formId) {
+  const recognition = new SpeechRecognition();
+  const status = byId('dictation-status');
+  let timer;
+  let transcript = '';
+  let ended = false;
+  let silenceElapsed = false;
+  const session = {
+    formId,
+    cancel() {
+      finish();
+      if (!ended) recognition.abort();
     }
-  }, 'dictate');
-  if (activeDictation?.formId === form.id) {
-    mic.textContent = 'Stop';
-    mic.setAttribute('aria-label', 'Stop dictation');
+  };
+
+  function finish(message = '') {
+    clearTimeout(timer);
+    activeDictation = undefined;
+    status.textContent = message;
   }
-  form.append(mic);
+
+  function save() {
+    finish();
+    const form = byId(formId);
+    const field = form?.elements.title;
+    if (!transcript || !field || field.value.trim()) return;
+    field.value = transcript.slice(0, field.maxLength);
+    form.requestSubmit();
+  }
+
+  function waitForSilence() {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      silenceElapsed = true;
+      if (ended) save();
+      else recognition.stop();
+    }, 3000);
+  }
+
+  activeDictation = session;
+  recognition.lang = document.documentElement.lang;
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  status.textContent = 'Listening… Click again to cancel.';
+  recognition.onstart = () => {
+    if (activeDictation === session) waitForSilence();
+  };
+  recognition.onspeechstart = () => {
+    if (activeDictation !== session) return;
+    clearTimeout(timer);
+    timer = undefined;
+  };
+  recognition.onspeechend = () => {
+    if (activeDictation === session && !silenceElapsed) waitForSilence();
+  };
+  recognition.onresult = event => {
+    if (activeDictation !== session) return;
+    transcript = Array.from(event.results, result => result[0].transcript.trim()).join(' ').trim();
+  };
+  recognition.onerror = event => {
+    if (activeDictation === session && event.error !== 'no-speech') {
+      finish('Dictation failed. Check microphone access or try again.');
+    }
+  };
+  recognition.onend = () => {
+    ended = true;
+    if (activeDictation !== session) return;
+    if (silenceElapsed) save();
+    else if (timer === undefined) waitForSilence();
+  };
+  try {
+    recognition.start();
+  } catch {
+    finish('Dictation could not start. Try again.');
+  }
 }
 
 function addTask(title, projectId) {
@@ -560,6 +597,7 @@ function updateAccount(session) {
   const user = session?.user || null;
   const changed = remoteUser?.id !== user?.id;
   if (changed) {
+    activeDictation?.cancel();
     remoteRequest++;
     remoteItems = [];
     if (editor.open) editor.close();
