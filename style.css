@@ -22,27 +22,14 @@ button:disabled { opacity: .55; cursor: wait; }
 .top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .65rem 1rem; padding: .85rem clamp(1rem, 3vw, 2.75rem); background: white; border-bottom: 1px solid var(--line); }
 .brand { color: inherit; text-decoration: none; font-size: 1.2rem; font-weight: 750; letter-spacing: -.035em; }
 .brand span { display: inline-grid; place-items: center; width: 32px; height: 32px; margin-right: .35rem; border-radius: 9px; color: white; background: var(--accent); }
-main { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 1.2rem; padding: 0 clamp(1rem, 3vw, 2.75rem) clamp(1rem, 3vw, 2.75rem) .5rem; max-width: 1700px; }
-aside, .calendar { min-width: 0; padding: 1rem; border: 1px solid var(--line); border-radius: 15px; background: white; align-self: start; }
-aside { position: sticky; top: 1rem; max-height: calc(100vh - 2rem); overflow: auto; font-size: .88rem; }
+.calendar { min-width: 0; padding: .8rem 0 1rem; background: white; }
+.calendar > .navigation, .calendar > .entry-forms, .calendar > #legend { margin-inline: .8rem; }
+.entry-forms { display: flex; flex-wrap: wrap; gap: .35rem; margin-bottom: .65rem; }
 .inline { display: flex; gap: .4rem; }
 .inline input { flex: 1; min-width: 0; }
-hr { border: 0; border-top: 1px solid var(--line); margin: 1rem 0; }
 h1, h2 { margin: 0 0 .65rem; letter-spacing: -.035em; }
 h1 { margin: 0; font-size: clamp(1.35rem, 2.4vw, 2rem); }
 h2 { font-size: 1.15rem; }
-aside h2 { font-size: 1rem; }
-.task, .project-title { display: flex; align-items: center; gap: .35rem; margin-top: .35rem; }
-.task { padding: .32rem .35rem; background: #f7f6ff; border-radius: 8px; cursor: grab; }
-.task:active { cursor: grabbing; }
-.task-name, .project-name { min-width: 0; flex: 1; padding: 0; border: 0; background: transparent; text-align: left; white-space: normal; overflow-wrap: anywhere; }
-.task-name:hover, .project-name:hover { text-decoration: underline; }
-.grip { color: var(--accent); }
-.project { border: 1px solid var(--line); border-radius: 10px; padding: .65rem; margin-top: .65rem; }
-.project-title { margin: 0; cursor: grab; }
-.project-body { margin-top: .5rem; }
-.project-body > .task + form { margin-top: .35rem; }
-#projects:not(:empty) + #add-project { margin-top: .65rem; }
 .calendar > .navigation { margin-bottom: .8rem; }
 .navigation, .views { display: flex; flex-wrap: wrap; gap: .35rem; align-items: center; }
 .views { background: #f0eff6; padding: .23rem; border-radius: 10px; }
@@ -53,23 +40,27 @@ aside h2 { font-size: 1rem; }
 .planner { background: var(--planner); color: #332575; }
 .dayflow { background: var(--dayflow); color: #145747; }
 .gantt-scroll { overflow-x: auto; }
-.gantt { --name-width: clamp(145px, 36vw, 480px); width: 100%; min-width: calc(var(--name-width) + 7 * 64px); table-layout: fixed; border-collapse: collapse; color: #171717; }
+.gantt { width: 100%; border-collapse: collapse; color: #171717; }
 .gantt th, .gantt td { border: 1px solid #aaa; padding: 0; }
 .gantt thead th { height: 2.35rem; background: #f1ead3; }
 .gantt thead .current-day { background: #ffd8ab; }
 .gantt .gantt-names, .gantt-row-label { position: sticky; left: 0; z-index: 1; }
-.gantt .gantt-names { width: var(--name-width); }
-.gantt .gantt-row-label { padding-left: 1.8rem; background: #fff; text-align: left; font-weight: 400; }
-.gantt .gantt-child .gantt-row-label { padding-left: 3rem; }
+.gantt .gantt-names { width: 1%; }
+.gantt .gantt-row-label { padding-left: 1.55rem; background: #fff; text-align: left; font-weight: 400; }
+.gantt .gantt-child .gantt-row-label { padding-left: 2.15rem; }
+.gantt-row-label form { padding: .15rem .3rem .15rem 0; }
+.gantt-row-label input { width: 12ch; padding: .2rem .3rem; }
 .gantt-project .gantt-row-label { font-weight: 700; }
-.gantt td { position: relative; height: 1.75rem; background: #fafafa; }
+.gantt td { position: relative; min-width: 64px; height: 1.75rem; background: #fafafa; }
 .gantt-name, .gantt-date, .gantt-toggle, .gantt-mark { border: 0; border-radius: 0; background: transparent; }
-.gantt-name, .gantt-date { display: block; width: 100%; padding: .2rem .35rem; }
-.gantt-name { text-align: left; white-space: normal; overflow-wrap: anywhere; }
-.gantt-date { font-weight: 650; }
+.gantt-name, .gantt-date { display: block; padding: .2rem .35rem; }
+.gantt-name { max-width: clamp(90px, 27vw, 320px); overflow: hidden; text-align: left; text-overflow: ellipsis; }
+.gantt-date { width: 100%; font-weight: 650; }
 .gantt-name:hover, .gantt-date:hover { text-decoration: underline; }
 .gantt-toggle { position: absolute; left: .2rem; top: 0; bottom: 0; width: 1.45rem; padding: 0; }
 .gantt-mark { position: absolute; inset: 0; width: 100%; background: #e41f26; }
+.times-layout { display: grid; grid-template-columns: max-content minmax(0, 1fr); align-items: start; }
+.times-names { width: auto; }
 .schedule { --slot-width: 125px; position: relative; display: flex; overflow-x: auto; border: 1px solid var(--line); border-radius: 9px; }
 .schedule::after { content: ''; flex: 0 0 max(0px, calc(100% - var(--slot-width))); }
 .slot { flex: 0 0 var(--slot-width); min-width: 0; min-height: 12rem; border-right: 1px solid var(--line); }
@@ -91,10 +82,6 @@ dialog p { color: var(--muted); }
 .dialog-actions { display: flex; flex-wrap: wrap; gap: .45rem; justify-content: flex-end; margin-top: 1rem; }
 .dialog-actions .danger { margin-right: auto; color: #9a2445; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-@media (max-width: 720px) {
-  main { grid-template-columns: 1fr; }
-  aside { position: static; max-height: none; }
-}
 .account-controls { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: .4rem; }
 #sync-status { font-size: .82rem; color: var(--muted); margin-right: .25rem; }
 #notes-field { padding: 0; border: 0; margin: .8rem 0 0; min-width: 0; }

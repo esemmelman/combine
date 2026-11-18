@@ -4,11 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Combine · Planner</title>
-  <link rel="stylesheet" href="style.css?v=16">
+  <link rel="stylesheet" href="style.css?v=17">
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0"></script>
   <script defer src="dayflow-config.js"></script>
   <script defer src="planner-sync.js?v=2"></script>
-  <script defer src="app.js?v=15"></script>
+  <script defer src="app.js?v=16"></script>
 </head>
 <body>
   <header class="top">
@@ -21,19 +21,8 @@
     </div>
   </header>
   <main>
-    <aside id="sidebar" aria-label="Tasks and projects">
-      <div id="dictation-status" class="sr-only" role="status"></div>
-      <form id="add-task" class="inline">
-        <input name="title" aria-label="Task name" placeholder="Add a task…" enterkeyhint="go" required maxlength="180">
-      </form>
-      <div id="tasks"></div>
-      <hr>
-      <div id="projects" role="group" aria-label="Projects"></div>
-      <form id="add-project" class="inline">
-        <input name="title" aria-label="Project name" placeholder="Add a project…" enterkeyhint="go" required maxlength="180">
-      </form>
-    </aside>
     <section class="calendar" aria-labelledby="calendar-title">
+      <div id="dictation-status" class="sr-only" role="status"></div>
       <div class="navigation">
         <button id="previous" aria-label="Previous dates">←</button>
         <button id="next" aria-label="Next dates">→</button>
@@ -43,6 +32,14 @@
           <button id="hours" aria-pressed="true">Times</button>
         </div>
         <button id="today">Today</button>
+      </div>
+      <div class="entry-forms">
+        <form id="add-task" class="inline">
+          <input name="title" aria-label="Task name" placeholder="Add a task…" enterkeyhint="go" required maxlength="180">
+        </form>
+        <form id="add-project" class="inline">
+          <input name="title" aria-label="Project name" placeholder="Add a project…" enterkeyhint="go" required maxlength="180">
+        </form>
       </div>
       <div id="legend"><span><i class="planner"></i> Tasks</span><span><i class="dayflow"></i> DayFlow</span></div>
       <div id="calendar-body"></div>
@@ -69,7 +66,7 @@
       </fieldset>
       <div class="dialog-actions">
         <button type="button" id="remove" class="danger">Delete</button>
-        <button type="button" id="move-to-sidebar" hidden>Move to sidebar</button>
+        <button type="button" id="unschedule" hidden>Unschedule</button>
         <button type="button" id="toggle-project-tasks" hidden>Hide tasks</button>
         <button type="button" data-close>Cancel</button>
         <button class="primary">Save</button>

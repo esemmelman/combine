@@ -49,7 +49,6 @@ let syncing = false;
 let syncAgain = false;
 let activeDictation;
 const collapsedProjects = new Set();
-const collapsedGanttProjects = new Set();
 
 function element(tag, className, text) {
   const item = document.createElement(tag);
@@ -82,7 +81,6 @@ function commit(edits) {
   } else {
     saveDevice();
   }
-  renderSidebar();
   renderCalendar();
 }
 
@@ -220,73 +218,23 @@ function draggable(item, entry, collection = 'tasks') {
   });
 }
 
-function taskRow(task) {
-  const row = element('div', 'task');
-  const grip = element('span', 'grip', '⠿');
-  grip.setAttribute('aria-hidden', 'true');
-  row.append(grip, button(task.title, null, () => openEditor(task, 'tasks'), 'task-name'));
-  draggable(row, task);
-  return row;
-}
-
-function renderSidebar() {
-  byId('tasks').replaceChildren(...state.tasks.filter(task => task.projectId === null && !task.date).map(taskRow));
-  const projects = state.projects.filter(project => !project.date).map(project => {
-    const section = element('section', 'project');
-    const heading = element('h3', 'project-title');
-    const body = element('div', 'project-body');
-    body.id = 'project-body-' + project.id;
-    const name = button(project.title, null, () => openEditor(project, 'projects'), 'project-name');
-    name.setAttribute('aria-controls', body.id);
-    function updateDisclosure() {
-      body.hidden = collapsedProjects.has(project.id);
-      name.setAttribute('aria-expanded', String(!body.hidden));
-    }
-    updateDisclosure();
-    let pointerWasAtRightEdge = false;
-    name.addEventListener('pointermove', event => {
-      if (event.pointerType !== 'mouse' || event.buttons) return;
-      const distanceFromRight = name.getBoundingClientRect().right - event.clientX;
-      const pointerIsAtRightEdge = distanceFromRight >= 0 && distanceFromRight <= 24;
-      if (pointerIsAtRightEdge && !pointerWasAtRightEdge) {
-        setProjectCollapsed(project.id, !body.hidden);
-        updateDisclosure();
-      }
-      pointerWasAtRightEdge = pointerIsAtRightEdge;
-    });
-    name.addEventListener('pointerleave', () => { pointerWasAtRightEdge = false; });
-    heading.append(name);
-    draggable(heading, project, 'projects');
-    const form = element('form', 'inline');
-    form.id = 'add-' + project.id;
-    const input = element('input');
-    input.name = 'title';
-    input.placeholder = 'Add a task…';
-    input.enterKeyHint = 'go';
-    input.setAttribute('aria-label', 'Task name for ' + project.title);
-    input.required = true;
-    input.maxLength = 180;
-    input.value = byId(form.id)?.elements.title.value || '';
-    form.append(input);
-    wireAdd(form, title => {
-      form.reset();
-      addTask(title, project.id);
-    });
-    const tasks = state.tasks.filter(task => task.projectId === project.id && !task.date);
-    body.append(...tasks.map(taskRow), form);
-    section.append(heading, body);
-    return section;
+function projectTaskForm(project) {
+  const form = element('form', 'inline');
+  form.id = 'add-' + project.id;
+  const input = element('input');
+  input.name = 'title';
+  input.placeholder = 'Add a task…';
+  input.enterKeyHint = 'go';
+  input.setAttribute('aria-label', 'Task name for ' + project.title);
+  input.required = true;
+  input.maxLength = 180;
+  input.value = byId(form.id)?.elements.title.value || '';
+  form.append(input);
+  wireAdd(form, title => {
+    form.reset();
+    addTask(title, project.id);
   });
-  byId('projects').replaceChildren(...projects);
-}
-
-function setProjectCollapsed(id, collapsed) {
-  if (collapsed) {
-    collapsedProjects.add(id);
-    if (activeDictation?.formId === 'add-' + id) activeDictation.cancel();
-  } else {
-    collapsedProjects.delete(id);
-  }
+  return form;
 }
 
 function openEditor(item, collection) {
@@ -301,9 +249,9 @@ function openEditor(item, collection) {
   if (!notes.children.length) addNoteEditor();
   activeNote = notes.querySelector('.note-editor');
   noteSelection = null;
-  byId('move-to-sidebar').hidden = !item.date;
+  byId('unschedule').hidden = !item.date;
   const toggle = byId('toggle-project-tasks');
-  toggle.hidden = collection !== 'projects' || Boolean(item.date);
+  toggle.hidden = collection !== 'projects';
   toggle.textContent = collapsedProjects.has(item.id) ? 'Show tasks' : 'Hide tasks';
   editor.showModal();
   title.focus();
@@ -408,7 +356,7 @@ byId('remove').addEventListener('click', () => {
   commit([{ collection, id: item.id, patch: null }]);
 });
 
-byId('move-to-sidebar').addEventListener('click', () => {
+byId('unschedule').addEventListener('click', () => {
   const { item, collection } = editing;
   editor.close();
   commit([{ collection, id: item.id, patch: { date: '', time: '' } }]);
@@ -417,9 +365,8 @@ byId('move-to-sidebar').addEventListener('click', () => {
 byId('toggle-project-tasks').addEventListener('click', () => {
   const { id } = editing.item;
   editor.close();
-  setProjectCollapsed(id, !collapsedProjects.has(id));
-  renderSidebar();
-  byId('project-body-' + id)?.previousElementSibling.querySelector('button').focus();
+  byId('project-toggle-' + id)?.click();
+  byId('project-toggle-' + id)?.focus();
 });
 
 document.querySelectorAll('[data-close]').forEach(item => {
@@ -447,7 +394,7 @@ function dropTarget(item, date = '', time = '') {
     const clock = time ?? entry.time ?? '';
     commit([{ collection, id, patch: { date, time: clock } }]);
     byId('notice').textContent = date ? entry.title + ' scheduled for ' + date + (clock ? ' at ' + timeLabel(minutesOf(clock)) : '') :
-      entry.title + ' moved to the sidebar';
+      entry.title + ' unscheduled';
   });
 }
 
@@ -501,19 +448,7 @@ function renderGantt(start, today) {
     dropTarget(weekday, key, null);
     dropTarget(cell, key, null);
   });
-  const body = table.createTBody();
-  function addRow(entry, collection, child = false) {
-    const row = body.insertRow();
-    const label = element('th', 'gantt-row-label');
-    label.scope = 'row';
-    if (entry) {
-      const name = button(entry.title, null, () => openEditor(entry, collection), 'gantt-name');
-      draggable(name, entry, collection);
-      label.append(name);
-    }
-    row.classList.toggle('gantt-child', child);
-    row.classList.toggle('gantt-project', collection === 'projects');
-    row.append(label);
+  addPlannerRows(table, (row, entry, collection) => {
     for (const key of keys) {
       const cell = row.insertCell();
       if (entry?.date === key) {
@@ -523,6 +458,28 @@ function renderGantt(start, today) {
       }
       dropTarget(cell, key, null);
     }
+  });
+  chart.append(table);
+  return chart;
+}
+
+function addPlannerRows(table, addDateCells = () => {}) {
+  const body = table.createTBody();
+  function addRow(entry, collection, child = false) {
+    const row = body.insertRow();
+    const label = element('th', 'gantt-row-label');
+    label.scope = 'row';
+    if (entry) {
+      const name = button(entry.title, null, () => openEditor(entry, collection), 'gantt-name');
+      name.title = entry.title;
+      draggable(name, entry, collection);
+      label.append(name);
+    }
+    row.classList.toggle('gantt-child', child);
+    row.classList.toggle('gantt-project', collection === 'projects');
+    row.append(label);
+    dropTarget(label);
+    addDateCells(row, entry, collection);
     return row;
   }
   const projectIds = new Set(state.projects.map(project => project.id));
@@ -530,24 +487,28 @@ function renderGantt(start, today) {
   for (const project of state.projects) {
     const row = addRow(project, 'projects');
     const children = state.tasks.filter(task => task.projectId === project.id).map(task => addRow(task, 'tasks', true));
-    if (!children.length) continue;
+    const addTaskRow = addRow(null, 'tasks', true);
+    addTaskRow.firstElementChild.append(projectTaskForm(project));
+    children.push(addTaskRow);
     const toggle = button('', 'Toggle tasks for ' + project.title, () => {
-      if (collapsedGanttProjects.has(project.id)) collapsedGanttProjects.delete(project.id);
-      else collapsedGanttProjects.add(project.id);
+      if (collapsedProjects.has(project.id)) collapsedProjects.delete(project.id);
+      else {
+        collapsedProjects.add(project.id);
+        if (activeDictation?.formId === 'add-' + project.id) activeDictation.cancel();
+      }
       updateDisclosure();
     }, 'gantt-toggle');
     function updateDisclosure() {
-      const collapsed = collapsedGanttProjects.has(project.id);
+      const collapsed = collapsedProjects.has(project.id);
       toggle.textContent = collapsed ? '›' : '⌄';
       toggle.setAttribute('aria-expanded', String(!collapsed));
       children.forEach(child => { child.hidden = collapsed; });
     }
+    toggle.id = 'project-toggle-' + project.id;
     row.firstElementChild.prepend(toggle);
     updateDisclosure();
   }
   if (!body.rows.length) addRow();
-  chart.append(table);
-  return chart;
 }
 
 function normalizeDayFlow(item) {
@@ -575,6 +536,10 @@ function dayFlowEvent(item, continued) {
 }
 
 function renderSchedule(key) {
+  const layout = element('div', 'times-layout');
+  const names = element('table', 'gantt times-names');
+  names.setAttribute('aria-label', 'Projects and tasks');
+  addPlannerRows(names);
   const schedule = element('div', 'schedule');
   schedule.tabIndex = 0;
   schedule.setAttribute('role', 'region');
@@ -600,7 +565,8 @@ function renderSchedule(key) {
     dropTarget(slot, key, allDay ? '' : timeValue(minutes));
     schedule.append(slot);
   }
-  return schedule;
+  layout.append(names, schedule);
+  return layout;
 }
 
 function renderCalendar(resetScroll = false) {
@@ -609,7 +575,7 @@ function renderCalendar(resetScroll = false) {
   const key = dateKey(selected);
   const weekStart = shift(selected, -((selected.getDay() + 6) % 7));
   const shortDate = { month: 'short', day: 'numeric' };
-  const scrollLeft = calendarBody.firstElementChild?.scrollLeft || 0;
+  const scrollLeft = calendarBody.querySelector('.schedule, .gantt-scroll')?.scrollLeft || 0;
   byId('calendar-title').textContent = view === 'days' ?
     format(weekStart, shortDate) + ' – ' + format(shift(weekStart, 6), { ...shortDate, year: 'numeric' }) :
     format(selected, { dateStyle: 'full' });
@@ -622,11 +588,12 @@ function renderCalendar(resetScroll = false) {
   const content = view === 'days' ? renderGantt(weekStart, today) : renderSchedule(key);
   calendarBody.replaceChildren(content);
   if (view === 'hours') {
+    const schedule = content.querySelector('.schedule');
     if (resetScroll) {
       const hour = Math.max(6, Math.min(22, now.getHours()));
-      content.scrollLeft = content.querySelector(`[data-hour="${hour}"]`).offsetLeft;
+      schedule.scrollLeft = schedule.querySelector(`[data-hour="${hour}"]`).offsetLeft;
     } else {
-      content.scrollLeft = scrollLeft;
+      schedule.scrollLeft = scrollLeft;
     }
   } else if (!resetScroll) {
     content.scrollLeft = scrollLeft;
@@ -668,7 +635,6 @@ const importedKey = id => 'combine:imported:' + id;
 function setPlanner(planner) {
   if (JSON.stringify(state) === JSON.stringify(planner)) return;
   state = planner;
-  renderSidebar();
   renderCalendar();
 }
 
@@ -754,8 +720,7 @@ function updateAccount(session) {
     const planner = user ? readStorage(plannerCacheKey(user.id), emptyPlanner()) : device;
     if (user) applyPlannerEdits(planner, pendingPlannerEdits(user.id).flatMap(([, edits]) => edits));
     state = planner;
-    document.querySelectorAll('aside input').forEach(input => { input.value = ''; });
-    renderSidebar();
+    document.querySelectorAll('.entry-forms input, #calendar-body form input').forEach(input => { input.value = ''; });
   }
   if (!user) syncStatus.textContent = 'On this device';
   refreshPlanner();
@@ -847,8 +812,6 @@ byId('clear-import').onclick = () => {
   renderCalendar();
 };
 
-dropTarget(byId('sidebar'));
-renderSidebar();
 renderCalendar(true);
 updateBackupStatus();
 if (!client) updateAccount(null);
