@@ -337,8 +337,9 @@ function renderSchedule(key) {
   const schedule = element('div', 'schedule');
   const tasks = sortedTasks(key);
   const dayFlowItems = (remoteUser ? remoteItems : device.backup).filter(item => item.date === key);
-  for (let minutes = -30; minutes < 1440; minutes += 30) {
+  for (let minutes = -30; minutes < 23 * 60; minutes += 30) {
     const allDay = minutes < 0;
+    if (!allDay && minutes < 5 * 60 + 30) continue;
     const row = element('div', allDay ? 'slot all-day' : 'slot');
     row.dataset.minutes = minutes;
     const items = element('div', 'slot-items');
