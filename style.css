@@ -30,7 +30,9 @@ main { display: grid; grid-template-columns: clamp(135px, 15vw, 180px) minmax(0,
 #standalone-tasks:not(:empty) { margin-top: .4rem; }
 .standalone-task { display: block; width: 100%; padding: .25rem .35rem; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; text-align: left; white-space: normal; overflow-wrap: anywhere; cursor: grab; }
 #add-task input, #add-project input, .gantt-row-label input { border-color: #74798a; }
+#add-task input:invalid, #add-project input:invalid, .gantt-row-label input:invalid { background: #e3e5ed; }
 #add-project input { width: 15ch; }
+.project-navigation { display: flex; align-items: center; gap: .15rem; }
 .inline { display: flex; gap: .4rem; }
 .inline input { flex: 1; min-width: 0; }
 h1, h2 { margin: 0 0 .65rem; letter-spacing: -.035em; }
@@ -54,15 +56,18 @@ h2 { font-size: 1.15rem; }
 .gantt thead .current-day { background: #ffd8ab; }
 .gantt .gantt-names, .gantt-row-label { position: sticky; left: 0; z-index: 1; }
 .gantt .gantt-names { width: 1%; padding-inline: .4rem; white-space: nowrap; }
-.gantt .gantt-row-label { height: 1.5rem; padding-left: 1.55rem; background: #fff; text-align: left; font-weight: 400; }
+.gantt .gantt-row-label { height: 1.25rem; padding-left: 1.55rem; background: #fff; text-align: left; font-weight: 400; }
 .gantt .gantt-child .gantt-row-label { padding-left: 2.15rem; }
 .gantt-row-label form { padding: .08rem .3rem .08rem 0; }
-.gantt-row-label input { width: 12ch; padding: .05rem .3rem; font-size: .88rem; }
+.gantt-row-label input { width: 12ch; padding: .05rem .3rem; font-size: .88rem; line-height: 1.2; }
 .gantt-project .gantt-row-label { font-weight: 700; }
-.gantt td { position: relative; width: 52px; min-width: 52px; height: 1.5rem; background: #fafafa; }
-.gantt-name, .gantt-date, .gantt-toggle, .gantt-mark { border: 0; border-radius: 0; background: transparent; }
+.gantt td { position: relative; width: 52px; min-width: 52px; height: 1.25rem; background: #fafafa; }
+.gantt-name, .gantt-date, .gantt-toggle, .gantt-mark, .gantt-insert { border: 0; border-radius: 0; background: transparent; }
 .gantt-name, .gantt-date { display: block; padding: .04rem .35rem; }
-.gantt-name { max-width: clamp(90px, 27vw, 320px); overflow: hidden; text-align: left; text-overflow: ellipsis; }
+.gantt-name-actions { display: flex; }
+.gantt-name { max-width: clamp(90px, 27vw, 320px); overflow: hidden; text-align: left; text-overflow: ellipsis; line-height: 1.2; }
+.gantt-insert { flex: 1; min-width: 1.35rem; padding: 0; cursor: text; }
+.gantt-insert:hover { background: #e3e5ed; }
 .gantt-date { width: 100%; font-weight: 650; }
 .gantt-date:hover { text-decoration: underline; }
 .gantt-toggle { position: absolute; left: .2rem; top: 0; bottom: 0; width: 1.45rem; padding: 0; }

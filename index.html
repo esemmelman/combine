@@ -4,11 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Combine · Planner</title>
-  <link rel="stylesheet" href="style.css?v=24">
+  <link rel="stylesheet" href="style.css?v=25">
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0"></script>
   <script defer src="dayflow-config.js"></script>
-  <script defer src="planner-sync.js?v=2"></script>
-  <script defer src="app.js?v=20"></script>
+  <script defer src="planner-sync.js?v=3"></script>
+  <script defer src="app.js?v=21"></script>
 </head>
 <body>
   <header class="top">
@@ -30,11 +30,13 @@
     <section class="calendar" aria-labelledby="calendar-title">
       <div id="dictation-status" class="sr-only" role="status"></div>
       <div class="navigation">
-        <form id="add-project" class="inline">
-          <input name="title" aria-label="Project name" enterkeyhint="go" required maxlength="180">
-        </form>
-        <button id="previous" aria-label="Previous dates">←</button>
-        <button id="next" aria-label="Next dates">→</button>
+        <div class="project-navigation">
+          <form id="add-project" class="inline">
+            <input name="title" aria-label="Project name" enterkeyhint="go" required maxlength="180">
+          </form>
+          <button id="previous" aria-label="Previous dates">←</button>
+          <button id="next" aria-label="Next dates">→</button>
+        </div>
         <label class="date-control"><span class="sr-only">Jump to date</span><input id="date-picker" type="date"></label>
         <div class="views" role="group" aria-label="Calendar view">
           <button id="days" aria-pressed="false">Gantt</button>

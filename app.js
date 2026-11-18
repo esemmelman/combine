@@ -49,6 +49,7 @@ let syncing = false;
 let syncAgain = false;
 let activeDictation;
 const collapsedProjects = new Set();
+const taskDraftRows = new Set();
 
 function element(tag, className, text) {
   const item = document.createElement(tag);
@@ -196,14 +197,11 @@ function listenForName(formId) {
   }
 }
 
-function addTask(title, projectId) {
-  commit([createItem('tasks', { title, projectId, date: '', time: '' })]);
-  byId(projectId ? 'add-' + projectId : 'add-task')?.elements.title.focus();
-}
-
 wireAdd(byId('add-task'), title => {
-  byId('add-task').reset();
-  addTask(title, null);
+  const form = byId('add-task');
+  form.reset();
+  commit([createItem('tasks', { title, projectId: null, date: '', time: '' })]);
+  form.elements.title.focus();
 });
 wireAdd(byId('add-project'), title => {
   byId('add-project').reset();
@@ -218,20 +216,30 @@ function draggable(item, entry, collection = 'tasks') {
   });
 }
 
-function projectTaskForm(project) {
+function inlineTaskForm(formId, entry, collection, projectId) {
   const form = element('form', 'inline');
-  form.id = 'add-' + project.id;
+  form.id = formId;
   const input = element('input');
   input.name = 'title';
   input.enterKeyHint = 'go';
-  input.setAttribute('aria-label', 'Task name for ' + project.title);
+  input.setAttribute('aria-label', 'New task below ' + entry.title);
   input.required = true;
   input.maxLength = 180;
   input.value = byId(form.id)?.elements.title.value || '';
   form.append(input);
   wireAdd(form, title => {
-    form.reset();
-    addTask(title, project.id);
+    taskDraftRows.delete(formId);
+    const edit = createItem('tasks', { title, projectId, date: '', time: '', ...(!projectId && { inGantt: true }) });
+    if (collection === 'projects') edit.beforeId = state.tasks.find(task => task.projectId === projectId)?.id;
+    else edit.afterId = entry.id;
+    commit([edit]);
+  });
+  input.addEventListener('keydown', event => {
+    if (event.key !== 'Escape') return;
+    if (activeDictation?.formId === formId) activeDictation.cancel();
+    taskDraftRows.delete(formId);
+    renderCalendar();
+    byId(formId + '-trigger')?.focus();
   });
   return form;
 }
@@ -505,7 +513,20 @@ function addPlannerRows(table, addDateCells = () => {}) {
       const name = button(entry.title, null, () => openEditor(entry, collection), 'gantt-name');
       name.title = entry.title;
       draggable(name, entry, collection);
-      label.append(name);
+      const actions = element('div', 'gantt-name-actions');
+      const formId = 'insert-task-' + collection + '-' + entry.id;
+      const insert = button('', 'Insert task below ' + entry.title, () => {
+        if (!taskDraftRows.has(formId) || (collection === 'projects' && collapsedProjects.has(entry.id))) {
+          taskDraftRows.add(formId);
+          if (collection === 'projects') collapsedProjects.delete(entry.id);
+          renderCalendar();
+        }
+        byId(formId)?.elements.title.focus();
+      }, 'gantt-insert');
+      insert.id = formId + '-trigger';
+      insert.title = 'Insert task below';
+      actions.append(name, insert);
+      label.append(actions);
     }
     row.classList.toggle('gantt-child', child);
     row.classList.toggle('gantt-project', collection === 'projects');
@@ -514,18 +535,32 @@ function addPlannerRows(table, addDateCells = () => {}) {
     addDateCells(row, entry, collection);
     return row;
   }
-  for (const task of standaloneTasks().filter(task => task.date || task.inGantt)) addRow(task, 'tasks');
+  function addDraft(entry, collection, projectId) {
+    const formId = 'insert-task-' + collection + '-' + entry.id;
+    if (!taskDraftRows.has(formId)) return;
+    const row = addRow(null, 'tasks', Boolean(projectId));
+    row.firstElementChild.append(inlineTaskForm(formId, entry, collection, projectId));
+    return row;
+  }
+  for (const task of standaloneTasks().filter(task => task.date || task.inGantt)) {
+    addRow(task, 'tasks');
+    addDraft(task, 'tasks', null);
+  }
   for (const project of state.projects) {
     const row = addRow(project, 'projects');
-    const children = state.tasks.filter(task => task.projectId === project.id).map(task => addRow(task, 'tasks', true));
-    const addTaskRow = addRow(null, 'tasks', true);
-    addTaskRow.firstElementChild.append(projectTaskForm(project));
-    children.push(addTaskRow);
+    const children = [addDraft(project, 'projects', project.id)].filter(Boolean);
+    for (const task of state.tasks.filter(task => task.projectId === project.id)) {
+      children.push(addRow(task, 'tasks', true));
+      const draft = addDraft(task, 'tasks', project.id);
+      if (draft) children.push(draft);
+    }
+    if (!children.length) continue;
     const toggle = button('', 'Toggle tasks for ' + project.title, () => {
       if (collapsedProjects.has(project.id)) collapsedProjects.delete(project.id);
       else {
         collapsedProjects.add(project.id);
-        if (activeDictation?.formId === 'add-' + project.id) activeDictation.cancel();
+        const dictationForm = activeDictation && byId(activeDictation.formId);
+        if (dictationForm && children.some(child => child.contains(dictationForm))) activeDictation.cancel();
       }
       updateDisclosure();
     }, 'gantt-toggle');
@@ -754,6 +789,7 @@ function updateAccount(session) {
   const changed = remoteUser?.id !== user?.id;
   if (changed) {
     activeDictation?.cancel();
+    taskDraftRows.clear();
     remoteRequest++;
     remoteItems = [];
     if (editor.open) editor.close();
