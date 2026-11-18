@@ -3,6 +3,7 @@
 const byId = id => document.getElementById(id);
 const storageKey = 'combine:planner:v1';
 const dragType = 'application/x-combine-task';
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 const pad = number => String(number).padStart(2, '0');
 const dateKey = date => [date.getFullYear(), pad(date.getMonth() + 1), pad(date.getDate())].join('-');
 const parseDate = key => new Date(key + 'T12:00:00');
@@ -45,6 +46,7 @@ const notes = byId('notes');
 let noteSelection;
 let syncing = false;
 let syncAgain = false;
+let activeDictation;
 
 function element(tag, className, text) {
   const item = document.createElement(tag);
@@ -92,7 +94,61 @@ function wireAdd(form, action) {
     const title = input.value.trim();
     if (!title) return;
     action(title);
+    if (!activeDictation) byId('dictation-status').textContent = '';
   });
+  if (!SpeechRecognition) return;
+
+  const input = form.elements.title;
+  const label = 'Dictate ' + input.getAttribute('aria-label').toLowerCase();
+  const mic = button('Mic', label, () => {
+    if (activeDictation) {
+      if (activeDictation.formId === form.id) activeDictation.recognition.stop();
+      return;
+    }
+
+    const status = byId('dictation-status');
+    const recognition = new SpeechRecognition();
+    recognition.lang = document.documentElement.lang;
+    const originalValue = input.value;
+    activeDictation = { formId: form.id, recognition };
+    mic.textContent = 'Stop';
+    mic.setAttribute('aria-label', 'Stop dictation');
+    status.textContent = 'Listening…';
+
+    recognition.onresult = event => {
+      const field = byId(form.id)?.elements.title;
+      if (!field || field.value !== originalValue) {
+        status.textContent = '';
+        return;
+      }
+      field.value = event.results[0][0].transcript.trim().slice(0, field.maxLength);
+      field.focus();
+      status.textContent = 'Press Enter or Go to save.';
+    };
+    recognition.onerror = () => {
+      status.textContent = 'Dictation failed. Check microphone access or try again.';
+    };
+    recognition.onend = () => {
+      activeDictation = undefined;
+      const currentMic = byId(form.id)?.querySelector('.dictate');
+      if (currentMic) {
+        currentMic.textContent = 'Mic';
+        currentMic.setAttribute('aria-label', label);
+      }
+      if (status.textContent === 'Listening…') status.textContent = '';
+    };
+    try {
+      recognition.start();
+    } catch {
+      recognition.onerror();
+      recognition.onend();
+    }
+  }, 'dictate');
+  if (activeDictation?.formId === form.id) {
+    mic.textContent = 'Stop';
+    mic.setAttribute('aria-label', 'Stop dictation');
+  }
+  form.append(mic);
 }
 
 function addTask(title, projectId) {
@@ -381,7 +437,7 @@ function renderCalendar(resetScroll = false) {
   calendarBody.replaceChildren(content);
   if (view === 'hours') {
     if (resetScroll) {
-      const hour = Math.max(6, Math.min(22, Math.round(now.getHours() + now.getMinutes() / 60)));
+      const hour = Math.max(6, Math.min(22, now.getHours()));
       content.scrollLeft = content.querySelector(`[data-hour="${hour}"]`).offsetLeft;
     } else {
       content.scrollLeft = scrollLeft;
