@@ -296,7 +296,7 @@ function renderWeek(start, today) {
     const date = shift(start, index);
     const key = dateKey(date);
     const day = element('section', key === dateKey(selected) ? 'day selected' : 'day');
-    const heading = button(format(date, { weekday: 'short' }), format(date, { dateStyle: 'full' }) + ' half-hour schedule', () => {
+    const heading = button(format(date, { weekday: 'short' }), 'Show times for ' + format(date, { dateStyle: 'full' }), () => {
       selected = date;
       changeView('hours');
     }, 'day-heading');
@@ -335,25 +335,28 @@ function dayFlowEvent(item, continued) {
 
 function renderSchedule(key) {
   const schedule = element('div', 'schedule');
+  schedule.tabIndex = 0;
+  schedule.setAttribute('role', 'region');
+  schedule.setAttribute('aria-label', 'Hourly schedule');
   const tasks = sortedTasks(key);
   const dayFlowItems = (remoteUser ? remoteItems : device.backup).filter(item => item.date === key);
-  for (let minutes = -30; minutes < 23 * 60; minutes += 30) {
-    const allDay = minutes < 0;
-    if (!allDay && minutes < 5 * 60 + 30) continue;
-    const row = element('div', allDay ? 'slot all-day' : 'slot');
-    row.dataset.minutes = minutes;
+  const hours = Array.from({ length: 17 }, (_, index) => index + 6);
+  for (const hour of [null, ...hours]) {
+    const allDay = hour === null;
+    const minutes = hour * 60;
+    const slot = element('div', allDay ? 'slot all-day' : 'slot');
     const items = element('div', 'slot-items');
     for (const task of tasks) {
       const start = minutesOf(task.time);
-      if (allDay ? !task.time : start >= minutes && start < minutes + 30) items.append(taskEvent(task));
+      if (allDay ? !task.time : start >= minutes && start < minutes + 60) items.append(taskEvent(task));
     }
     for (const item of dayFlowItems) {
-      const occurs = item.start !== null && item.start < minutes + 30 && (item.end ?? item.start + 1) > minutes;
+      const occurs = item.start !== null && item.start < minutes + 60 && (item.end ?? item.start + 1) > minutes;
       if (allDay ? item.start === null : occurs) items.append(dayFlowEvent(item, !allDay && item.start < minutes));
     }
-    row.append(element('div', 'slot-label', allDay ? 'All day' : timeLabel(minutes)), items);
-    dropTarget(row, key, allDay ? '' : timeValue(minutes));
-    schedule.append(row);
+    slot.append(element('div', 'slot-label', allDay ? 'All day' : timeLabel(minutes)), items);
+    dropTarget(slot, key, allDay ? '' : timeValue(minutes));
+    schedule.append(slot);
   }
   return schedule;
 }
@@ -361,9 +364,9 @@ function renderSchedule(key) {
 function renderCalendar(resetScroll = false) {
   const today = dateKey(new Date());
   const key = dateKey(selected);
-  const weekStart = shift(selected, -selected.getDay());
+  const weekStart = shift(selected, -((selected.getDay() + 6) % 7));
   const shortDate = { month: 'short', day: 'numeric' };
-  const scrollTop = calendarBody.firstElementChild?.scrollTop || 0;
+  const scrollLeft = calendarBody.firstElementChild?.scrollLeft || 0;
   byId('calendar-title').textContent = view === 'days' ?
     format(weekStart, shortDate) + ' – ' + format(shift(weekStart, 6), { ...shortDate, year: 'numeric' }) :
     format(selected, { dateStyle: 'full' });
@@ -375,10 +378,7 @@ function renderCalendar(resetScroll = false) {
   byId('next').setAttribute('aria-label', view === 'days' ? 'Next week' : 'Next day');
   const content = view === 'days' ? renderWeek(weekStart, today) : renderSchedule(key);
   calendarBody.replaceChildren(content);
-  if (view === 'hours') {
-    content.scrollTop = resetScroll ?
-      content.querySelector('[data-minutes="480"]').offsetTop - content.offsetTop - content.firstElementChild.offsetHeight : scrollTop;
-  }
+  if (view === 'hours' && !resetScroll) content.scrollLeft = scrollLeft;
 }
 
 function changeView(nextView) {
