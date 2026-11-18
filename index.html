@@ -4,22 +4,16 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Combine · Planner</title>
-  <link rel="stylesheet" href="style.css?v=8">
+  <link rel="stylesheet" href="style.css?v=9">
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0"></script>
   <script defer src="dayflow-config.js"></script>
   <script defer src="planner-sync.js?v=2"></script>
-  <script defer src="app.js?v=6"></script>
+  <script defer src="app.js?v=7"></script>
 </head>
 <body>
   <header class="top">
     <a class="brand" href="./"><span aria-hidden="true">◫</span> Combine</a>
-    <div class="calendar-heading">
-      <h1 id="calendar-title"></h1>
-      <div class="views" role="group" aria-label="Calendar view">
-        <button id="days" aria-pressed="false">Day to day</button>
-        <button id="hours" aria-pressed="true">Times</button>
-      </div>
-    </div>
+    <h1 id="calendar-title"></h1>
     <div class="account-controls">
       <span id="sync-status" role="status">On this device</span>
       <button id="account-settings" type="button">Account</button>
@@ -27,7 +21,7 @@
     </div>
   </header>
   <main>
-    <aside aria-label="Tasks and projects">
+    <aside id="sidebar" aria-label="Tasks and projects">
       <p id="dictation-status" role="status"></p>
       <form id="add-task" class="inline">
         <input name="title" aria-label="Task name" placeholder="Add a task…" enterkeyhint="go" required maxlength="180">
@@ -46,6 +40,10 @@
         <button id="today">Today</button>
         <button id="next" aria-label="Next dates">→</button>
         <label class="date-control"><span class="sr-only">Jump to date</span><input id="date-picker" type="date"></label>
+        <div class="views" role="group" aria-label="Calendar view">
+          <button id="days" aria-pressed="false">Day to day</button>
+          <button id="hours" aria-pressed="true">Times</button>
+        </div>
       </div>
       <div id="legend"><span><i class="planner"></i> Tasks</span><span><i class="dayflow"></i> DayFlow</span></div>
       <div id="calendar-body"></div>
@@ -71,6 +69,7 @@
       </fieldset>
       <div class="dialog-actions">
         <button type="button" id="remove" class="danger">Delete</button>
+        <button type="button" id="edit-details" hidden>Edit details</button>
         <button type="button" data-close>Cancel</button>
         <button class="primary">Save</button>
       </div>

@@ -165,10 +165,10 @@ wireAdd(byId('add-project'), title => {
   commit([createItem('projects', { title })]);
 });
 
-function draggable(item, task) {
+function draggable(item, entry, collection = 'tasks') {
   item.draggable = true;
   item.addEventListener('dragstart', event => {
-    event.dataTransfer.setData(dragType, task.id);
+    event.dataTransfer.setData(dragType, collection + '/' + entry.id);
     event.dataTransfer.effectAllowed = 'move';
   });
 }
@@ -185,12 +185,14 @@ function taskRow(task) {
 }
 
 function renderSidebar() {
-  byId('tasks').replaceChildren(...state.tasks.filter(task => task.projectId === null).map(taskRow));
-  const projects = state.projects.map(project => {
+  byId('tasks').replaceChildren(...state.tasks.filter(task => task.projectId === null && !task.date).map(taskRow));
+  const projects = state.projects.filter(project => !project.date).map(project => {
     const section = element('section', 'project');
     const heading = element('h3', 'project-title');
     heading.append(element('span', 'project-name', project.title),
+      button('＋', 'Schedule ' + project.title, () => openEditor(project, 'schedule', 'projects'), 'icon'),
       button('✎', 'Edit project ' + project.title, () => openEditor(project, 'project'), 'icon'));
+    draggable(heading, project, 'projects');
     const form = element('form', 'inline');
     form.id = 'add-' + project.id;
     const input = element('input');
@@ -206,14 +208,14 @@ function renderSidebar() {
       form.reset();
       addTask(title, project.id);
     });
-    section.append(heading, form, ...state.tasks.filter(task => task.projectId === project.id).map(taskRow));
+    section.append(heading, form, ...state.tasks.filter(task => task.projectId === project.id && !task.date).map(taskRow));
     return section;
   });
   byId('projects').replaceChildren(...projects);
 }
 
-function openEditor(item, kind) {
-  editing = { item: { ...item }, kind };
+function openEditor(item, kind, collection = kind === 'project' ? 'projects' : 'tasks') {
+  editing = { item: { ...item }, kind, collection };
   const { title, date, time } = editForm.elements;
   byId('edit-title').textContent = kind === 'schedule' ? 'Schedule ' + item.title : kind === 'project' ? 'Edit project' : 'Edit task';
   byId('name-field').hidden = kind === 'schedule';
@@ -228,7 +230,8 @@ function openEditor(item, kind) {
   notes.innerHTML = cleanNotes(item.notes || '');
   noteSelection = null;
   byId('remove').hidden = kind === 'schedule' && !item.date;
-  byId('remove').textContent = kind === 'schedule' ? 'Unschedule' : 'Delete';
+  byId('remove').textContent = kind === 'schedule' ? 'Move to sidebar' : 'Delete';
+  byId('edit-details').hidden = kind !== 'schedule' || !item.date;
   editor.showModal();
   (kind === 'schedule' ? date : title).focus();
 }
@@ -282,7 +285,7 @@ editForm.addEventListener('submit', event => {
   event.preventDefault();
   const { title, date, time } = editForm.elements;
   if (!title.value.trim()) return;
-  const { item, kind } = editing;
+  const { item, kind, collection } = editing;
   const patch = {};
   if (kind !== 'schedule') {
     const safeNotes = cleanNotes(notes.innerHTML);
@@ -295,25 +298,31 @@ editForm.addEventListener('submit', event => {
   }
   editor.close();
   if (kind === 'schedule') navigate(parseDate(date.value));
-  if (Object.keys(patch).length) commit([{ collection: kind === 'project' ? 'projects' : 'tasks', id: item.id, patch }]);
+  if (Object.keys(patch).length) commit([{ collection, id: item.id, patch }]);
 });
 
 byId('remove').addEventListener('click', () => {
-  const { item, kind } = editing;
+  const { item, kind, collection } = editing;
   if (kind === 'project') {
     const hasTasks = state.tasks.some(task => task.projectId === item.id);
     if (hasTasks && !confirm('Delete this project and all of its tasks?')) return;
   }
   editor.close();
   const patch = kind === 'schedule' ? { date: '', time: '' } : null;
-  commit([{ collection: kind === 'project' ? 'projects' : 'tasks', id: item.id, patch }]);
+  commit([{ collection, id: item.id, patch }]);
+});
+
+byId('edit-details').addEventListener('click', () => {
+  const { item, collection } = editing;
+  editor.close();
+  openEditor(item, collection === 'projects' ? 'project' : 'task');
 });
 
 document.querySelectorAll('[data-close]').forEach(item => {
   item.addEventListener('click', () => item.closest('dialog').close());
 });
 
-function dropTarget(item, date, time) {
+function dropTarget(item, date = '', time = '') {
   item.addEventListener('dragover', event => {
     if (!Array.from(event.dataTransfer.types).includes(dragType)) return;
     event.preventDefault();
@@ -324,25 +333,31 @@ function dropTarget(item, date, time) {
     if (!item.contains(event.relatedTarget)) item.classList.remove('drop-active');
   });
   item.addEventListener('drop', event => {
-    const task = state.tasks.find(task => task.id === event.dataTransfer.getData(dragType));
-    if (!task) return;
-    event.preventDefault();
     item.classList.remove('drop-active');
-    selected = parseDate(date);
-    commit([{ collection: 'tasks', id: task.id, patch: { date, time } }]);
-    byId('notice').textContent = task.title + ' scheduled for ' + date + (time ? ' at ' + timeLabel(minutesOf(time)) : '');
+    const [collection, id] = event.dataTransfer.getData(dragType).split('/');
+    if (collection !== 'tasks' && collection !== 'projects') return;
+    const entry = state[collection].find(entry => entry.id === id);
+    if (!entry || (!date && !entry.date)) return;
+    event.preventDefault();
+    if (date) selected = parseDate(date);
+    commit([{ collection, id, patch: { date, time } }]);
+    byId('notice').textContent = date ? entry.title + ' scheduled for ' + date + (time ? ' at ' + timeLabel(minutesOf(time)) : '') :
+      entry.title + ' moved to the sidebar';
   });
 }
 
-function taskEvent(task) {
-  const item = button(task.title, null, () => openEditor(task, 'schedule'), 'event planner');
-  if (task.time) item.append(element('small', '', timeLabel(minutesOf(task.time))));
-  draggable(item, task);
+function plannerEvent({ entry, collection }) {
+  const item = button(entry.title, null, () => openEditor(entry, 'schedule', collection), 'event planner');
+  const details = [collection === 'projects' ? 'Project' : '', entry.time ? timeLabel(minutesOf(entry.time)) : ''].filter(Boolean);
+  if (details.length) item.append(element('small', '', details.join(' · ')));
+  draggable(item, entry, collection);
   return item;
 }
 
-function sortedTasks(date) {
-  return state.tasks.filter(task => task.date === date).sort((first, second) => first.time.localeCompare(second.time));
+function scheduledEntries(date) {
+  return ['tasks', 'projects'].flatMap(collection => state[collection]
+    .filter(entry => entry.date === date).map(entry => ({ entry, collection })))
+    .sort((first, second) => (first.entry.time || '').localeCompare(second.entry.time || ''));
 }
 
 function renderWeek(start, today) {
@@ -357,7 +372,7 @@ function renderWeek(start, today) {
     }, 'day-heading');
     heading.append(element('span', '', format(date, { month: 'short', day: 'numeric' })));
     if (key === today) heading.setAttribute('aria-current', 'date');
-    day.append(heading, ...sortedTasks(key).map(taskEvent));
+    day.append(heading, ...scheduledEntries(key).map(plannerEvent));
     dropTarget(day, key, '');
     week.append(day);
   }
@@ -393,7 +408,7 @@ function renderSchedule(key) {
   schedule.tabIndex = 0;
   schedule.setAttribute('role', 'region');
   schedule.setAttribute('aria-label', 'Hourly schedule');
-  const tasks = sortedTasks(key);
+  const entries = scheduledEntries(key);
   const dayFlowItems = (remoteUser ? remoteItems : device.backup).filter(item => item.date === key);
   const hours = Array.from({ length: 17 }, (_, index) => index + 6);
   for (const hour of [null, ...hours]) {
@@ -402,9 +417,9 @@ function renderSchedule(key) {
     const slot = element('div', allDay ? 'slot all-day' : 'slot');
     if (!allDay) slot.dataset.hour = hour;
     const items = element('div', 'slot-items');
-    for (const task of tasks) {
-      const start = minutesOf(task.time);
-      if (allDay ? !task.time : start >= minutes && start < minutes + 60) items.append(taskEvent(task));
+    for (const scheduled of entries) {
+      const start = minutesOf(scheduled.entry.time);
+      if (allDay ? !scheduled.entry.time : start >= minutes && start < minutes + 60) items.append(plannerEvent(scheduled));
     }
     for (const item of dayFlowItems) {
       const occurs = item.start !== null && item.start < minutes + 60 && (item.end ?? item.start + 1) > minutes;
@@ -658,6 +673,7 @@ byId('clear-import').onclick = () => {
   renderCalendar();
 };
 
+dropTarget(byId('sidebar'));
 renderSidebar();
 renderCalendar(true);
 updateBackupStatus();
