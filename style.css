@@ -39,7 +39,6 @@ main:has(> #standalone-panel[hidden]) { grid-template-columns: minmax(0, 1fr); }
 #toggle-standalone-panel { grid-column: 1; justify-self: center; min-width: 2rem; padding: 0 .5rem; line-height: 1.4; }
 .inline { display: flex; gap: .4rem; }
 .inline input { flex: 1; min-width: 0; }
-#today { margin-inline-start: .5rem; }
 h1, h2 { margin: 0 0 .65rem; letter-spacing: -.035em; }
 h1 { margin: 0; font-size: 1.1rem; }
 h2 { font-size: 1.15rem; }
@@ -128,7 +127,7 @@ dialog p { color: var(--muted); }
 .dialog-actions .danger { margin-right: auto; color: #9a2445; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .account-controls { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: .35rem; margin-inline-start: auto; }
-#sync-status { font-size: .82rem; color: var(--muted); }
+#sync-status { align-self: center; font-size: .82rem; color: var(--muted); }
 #notes-field { padding: 0; border: 0; margin: .8rem 0 0; min-width: 0; }
 #notes-label { margin-bottom: .3rem; }
 #notes-toolbar { flex-wrap: wrap; margin-bottom: .35rem; }
