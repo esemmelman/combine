@@ -24,15 +24,15 @@ button:disabled { opacity: .55; cursor: wait; }
 .top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .65rem 1rem; padding: .85rem clamp(1rem, 3vw, 2.75rem); background: white; border-bottom: 1px solid var(--line); }
 .brand { color: inherit; text-decoration: none; font-size: 1.2rem; font-weight: 750; letter-spacing: -.035em; }
 .brand span { display: inline-grid; place-items: center; width: 32px; height: 32px; margin-right: .35rem; border-radius: 9px; color: white; background: var(--accent); }
-main { display: grid; grid-template-columns: clamp(135px, 15vw, 180px) minmax(0, 1fr); }
-.calendar { min-width: 0; padding: .8rem 0 1rem; background: white; }
-#standalone-panel { min-width: 0; padding: var(--task-panel-top, .5rem) .5rem .5rem; border-right: 1px solid var(--calendar-grid); background: #fff; font-size: .88rem; }
+main { --panel-top: .8rem; display: grid; grid-template-columns: clamp(135px, 15vw, 180px) minmax(0, 1fr); }
+.calendar { min-width: 0; padding: var(--panel-top) 0 1rem; background: white; }
+#standalone-panel { min-width: 0; padding: var(--panel-top) .5rem .5rem; border-right: 1px solid var(--calendar-grid); background: #fff; font-size: .88rem; }
 #standalone-tasks:not(:empty) { margin-top: .4rem; }
 .standalone-task { display: block; width: 100%; padding: .25rem .35rem; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; text-align: left; white-space: normal; overflow-wrap: anywhere; cursor: grab; }
 #add-task input, #add-project input, .gantt-row-label input { border-color: #74798a; }
 #add-task input:invalid, #add-project input:invalid, .gantt-row-label input:invalid { background: #e3e5ed; }
 #add-project input { width: 15ch; }
-.project-navigation { display: flex; align-items: center; gap: .15rem; }
+.project-navigation { display: flex; align-self: flex-start; align-items: flex-start; gap: .15rem; }
 .inline { display: flex; gap: .4rem; }
 .inline input { flex: 1; min-width: 0; }
 h1, h2 { margin: 0 0 .65rem; letter-spacing: -.035em; }
