@@ -784,8 +784,12 @@ function renderCalendar(resetScroll = false) {
     calendarBody.replaceChildren(content);
     const schedule = content.querySelector('.schedule');
     if (resetScroll) {
-      const hour = Math.max(6, Math.min(22, now.getHours()));
-      schedule.scrollLeft = schedule.querySelector(`[data-hour="${hour}"]`).offsetLeft;
+      if (key > today) {
+        schedule.scrollLeft = 0;
+      } else {
+        const hour = Math.max(6, Math.min(22, now.getHours()));
+        schedule.scrollLeft = schedule.querySelector(`[data-hour="${hour}"]`).offsetLeft;
+      }
     } else {
       schedule.scrollLeft = scrollLeft;
     }
@@ -813,7 +817,7 @@ function changeView(nextView) {
 function navigate(date, pageStart) {
   selected = date;
   ganttStart = pageStart;
-  renderCalendar(Boolean(pageStart));
+  renderCalendar(Boolean(pageStart) || (view === 'hours' && dateKey(date) > dateKey(new Date())));
   loadDayFlow();
 }
 
