@@ -10,7 +10,15 @@ function applyPlannerEdits(planner, edits) {
       if (index >= 0) items.splice(index, 1);
       if (collection === 'projects') planner.tasks = planner.tasks.filter(task => task.projectId !== id);
     } else if (index >= 0) {
-      if (!create) Object.assign(items[index], patch);
+      if (create) continue;
+      if (collection === 'tasks' && (beforeId || afterId)) {
+        const task = items[index];
+        const anchor = items.findIndex(item => item.id === (beforeId ?? afterId) && item.projectId === task.projectId);
+        if (!task.projectId || anchor < 0 || anchor === index) continue;
+        const adjustedAnchor = index < anchor ? anchor - 1 : anchor;
+        items.splice(index, 1);
+        items.splice(beforeId ? adjustedAnchor : adjustedAnchor + 1, 0, task);
+      } else Object.assign(items[index], patch);
     } else if (create && (collection !== 'tasks' || !patch.projectId ||
       planner.projects.some(project => project.id === patch.projectId))) {
       const anchorId = beforeId ?? afterId;

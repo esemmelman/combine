@@ -72,6 +72,9 @@ h2 { font-size: 1.15rem; }
 .gantt-name, .gantt-date { display: block; padding: .04rem .35rem; }
 .gantt-name-actions { display: flex; }
 .gantt-name { max-width: clamp(90px, 27vw, 320px); overflow: hidden; text-align: left; text-overflow: ellipsis; line-height: 1.2; }
+.gantt-child .gantt-name { cursor: grab; }
+.drop-before { box-shadow: inset 0 2px var(--accent); }
+.drop-after { box-shadow: inset 0 -2px var(--accent); }
 .red-gantt-name { color: #b42318; }
 .green-gantt-name { text-decoration: line-through; }
 .gantt-insert { flex: 1; min-width: 1.35rem; padding: 0; cursor: text; }

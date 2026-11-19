@@ -52,6 +52,7 @@ let activeNote;
 let syncing = false;
 let syncAgain = false;
 let activeDictation;
+let draggedProjectTask;
 const collapsedProjects = new Set();
 const taskDraftRows = new Set();
 
@@ -219,11 +220,18 @@ wireAdd(byId('add-project'), title => {
   commit([createItem('projects', { title })]);
 });
 
-function draggable(item, entry, collection = 'tasks') {
+function draggable(item, entry, collection = 'tasks', reorderWithinProject = false) {
   item.draggable = true;
   item.addEventListener('dragstart', event => {
     event.dataTransfer.setData(dragType, collection + '/' + entry.id);
     event.dataTransfer.effectAllowed = 'move';
+    draggedProjectTask = reorderWithinProject ? entry : undefined;
+  });
+  if (reorderWithinProject) item.addEventListener('dragend', () => {
+    draggedProjectTask = undefined;
+    calendarBody.querySelectorAll('.drop-before, .drop-after').forEach(label => {
+      label.classList.remove('drop-before', 'drop-after');
+    });
   });
 }
 
@@ -393,23 +401,43 @@ document.querySelectorAll('[data-close]').forEach(item => {
   item.addEventListener('click', () => item.closest('dialog').close());
 });
 
-function plannerDropTarget(item, onDrop) {
+function plannerDropTarget(item, onDrop, reorderTarget) {
+  const canReorder = () => draggedProjectTask && reorderTarget &&
+    draggedProjectTask.projectId === reorderTarget.projectId && draggedProjectTask.id !== reorderTarget.id;
+  const dropBefore = event => {
+    const { top, height } = item.getBoundingClientRect();
+    return event.clientY < top + height / 2;
+  };
+  const clearDrop = () => item.classList.remove('drop-active', 'drop-before', 'drop-after');
   item.addEventListener('dragover', event => {
     if (!Array.from(event.dataTransfer.types).includes(dragType)) return;
+    if (reorderTarget && draggedProjectTask && !canReorder()) return;
     event.preventDefault();
     event.dataTransfer.dropEffect = 'move';
-    item.classList.add('drop-active');
+    if (canReorder()) {
+      const before = dropBefore(event);
+      item.classList.toggle('drop-before', before);
+      item.classList.toggle('drop-after', !before);
+    } else item.classList.add('drop-active');
   });
   item.addEventListener('dragleave', event => {
-    if (!item.contains(event.relatedTarget)) item.classList.remove('drop-active');
+    if (!item.contains(event.relatedTarget)) clearDrop();
   });
   item.addEventListener('drop', event => {
-    item.classList.remove('drop-active');
+    clearDrop();
     const [collection, id] = event.dataTransfer.getData(dragType).split('/');
     if (collection !== 'tasks' && collection !== 'projects') return;
     const entry = state[collection].find(entry => entry.id === id);
     if (!entry) return;
     event.preventDefault();
+    if (reorderTarget && draggedProjectTask) {
+      if (!canReorder() || collection !== 'tasks' || id !== draggedProjectTask.id) return;
+      const anchor = dropBefore(event) ? 'beforeId' : 'afterId';
+      draggedProjectTask = undefined;
+      commit([{ collection, id, [anchor]: reorderTarget.id }]);
+      byId('notice').textContent = entry.title + ' moved ' + (anchor === 'beforeId' ? 'above ' : 'below ') + reorderTarget.title;
+      return;
+    }
     onDrop(entry, collection);
   });
 }
@@ -588,7 +616,7 @@ function addPlannerRows(table, addDateCells = () => {}) {
         name.classList.add(entry.ganttColor === 'green' ? 'green-gantt-name' : 'red-gantt-name');
       }
       name.title = entry.title;
-      draggable(name, entry, collection);
+      draggable(name, entry, collection, child);
       const actions = element('div', 'gantt-name-actions');
       const formId = 'insert-task-' + collection + '-' + entry.id;
       const isProject = collection === 'projects';
@@ -611,7 +639,7 @@ function addPlannerRows(table, addDateCells = () => {}) {
     row.classList.toggle('gantt-child', child);
     row.classList.toggle('gantt-project', collection === 'projects');
     row.append(label);
-    plannerDropTarget(label, moveIntoNames);
+    plannerDropTarget(label, moveIntoNames, child ? entry : null);
     addDateCells(row, entry, collection);
     return row;
   }
