@@ -4,13 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Combine · Planner</title>
-  <link rel="stylesheet" href="style.css?v=51">
+  <link rel="stylesheet" href="style.css?v=52">
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0"></script>
   <script defer src="dayflow-config.js"></script>
   <script defer src="planner-sync.js?v=6"></script>
-  <script defer src="app.js?v=53"></script>
+  <script defer src="app.js?v=54"></script>
 </head>
 <body>
+  <div id="notice" class="sr-only" role="status"></div>
   <main>
     <aside id="standalone-panel" aria-label="Standalone tasks">
       <form id="add-task" class="inline">
@@ -62,7 +63,6 @@
       </div>
     </section>
   </main>
-  <div id="notice" class="sr-only" role="status"></div>
   <dialog id="editor">
     <form id="edit-form">
       <h2 id="edit-title"></h2>

@@ -21,10 +21,10 @@ button:hover { border-color: #9d92d2; }
 button:disabled { opacity: .55; cursor: wait; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .primary { background: var(--accent); border-color: var(--accent); color: white; font-weight: 600; }
-main { --panel-top: .8rem; display: grid; grid-template-columns: clamp(135px, 15vw, 180px) minmax(0, 1fr); }
+main { --panel-top: .8rem; display: grid; height: 100dvh; grid-template-columns: clamp(135px, 15vw, 180px) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
 main:has(> #standalone-panel[hidden]) { grid-template-columns: minmax(0, 1fr); }
-.calendar { min-width: 0; padding: var(--panel-top) 0 1rem; background: white; }
-#standalone-panel { min-width: 0; padding: var(--panel-top) .5rem .5rem; border-right: 1px solid var(--calendar-grid); background: #fff; font-size: .88rem; }
+.calendar { display: flex; flex-direction: column; min-width: 0; min-height: 0; padding-top: var(--panel-top); background: white; }
+#standalone-panel { min-width: 0; overflow: auto; padding: var(--panel-top) .5rem .5rem; border-right: 1px solid var(--calendar-grid); background: #fff; font-size: .88rem; }
 #standalone-tasks:not(:empty) { margin-top: .4rem; }
 .standalone-task { display: block; width: 100%; padding: .25rem .35rem; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; text-align: left; white-space: normal; overflow-wrap: anywhere; cursor: grab; }
 #add-task input, #add-project input, .gantt-row-label input { border-color: #74798a; }
@@ -32,8 +32,10 @@ main:has(> #standalone-panel[hidden]) { grid-template-columns: minmax(0, 1fr); }
 #add-project input { width: 15ch; }
 .project-navigation { display: grid; grid-template-columns: repeat(3, auto); align-items: start; gap: .15rem; }
 #date-navigation { display: flex; align-items: center; gap: .15rem; }
-.calendar-content { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; }
-.calendar-content > #date-navigation { padding-inline: .15rem; }
+.calendar-content { display: grid; flex: 1; min-height: 0; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: minmax(0, 1fr); }
+.calendar-content > #date-navigation { align-self: start; padding-inline: .15rem; }
+#calendar-body { overflow: auto; }
+#calendar-body:has(> .gantt-scroll) { overflow: hidden; }
 #toggle-standalone-panel { grid-column: 1; justify-self: center; min-width: 2rem; padding: 0 .5rem; line-height: 1.4; }
 .inline { display: flex; gap: .4rem; }
 .inline input { flex: 1; min-width: 0; }
@@ -41,7 +43,7 @@ main:has(> #standalone-panel[hidden]) { grid-template-columns: minmax(0, 1fr); }
 h1, h2 { margin: 0 0 .65rem; letter-spacing: -.035em; }
 h1 { margin: 0; font-size: 1.1rem; }
 h2 { font-size: 1.15rem; }
-.calendar > .navigation { margin: 0 .8rem .8rem; }
+.calendar > .navigation { flex-shrink: 0; margin: 0 .8rem .8rem; }
 .date-control { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem .65rem; }
 .navigation, .views { display: flex; flex-wrap: wrap; gap: .35rem; align-items: center; }
 .navigation { align-items: flex-start; }
@@ -50,12 +52,13 @@ h2 { font-size: 1.15rem; }
 .views [aria-pressed="true"] { background: white; color: var(--accent); border-color: var(--line); font-weight: 650; }
 .planner { background: var(--planner); color: #332575; }
 .dayflow { background: var(--dayflow); color: #145747; }
-.gantt-scroll { --gantt-day-width: 26px; overflow-x: scroll; }
+.gantt-scroll { --gantt-day-width: 26px; max-height: 100%; overflow: scroll auto; }
 .gantt { width: 100%; border-collapse: collapse; color: #171717; }
 .gantt-scroll > .gantt { width: max-content; }
 .gantt th, .gantt td { border: 1px solid var(--calendar-grid); padding: 0; }
 .gantt thead th { height: 1.45rem; background: var(--calendar-heading); font-size: .8rem; }
 .gantt-scroll thead th { height: 1rem; line-height: 1.15; }
+.gantt-scroll thead { position: sticky; top: 0; z-index: 2; }
 .gantt-day { width: var(--gantt-day-width); min-width: var(--gantt-day-width); }
 .gantt-outside-range { display: none; }
 .gantt-month { position: relative; }
@@ -137,8 +140,10 @@ dialog p { color: var(--muted); }
 dialog { max-height: calc(100% - 2rem); }
 @media (max-width: 540px) {
   main { grid-template-columns: minmax(0, 1fr); }
-  #standalone-panel { padding-top: .5rem; border-right: 0; border-bottom: 1px solid var(--calendar-grid); }
+  main:has(> #standalone-panel:not([hidden])) { grid-template-rows: auto minmax(0, 1fr); }
+  #standalone-panel { max-height: 25dvh; padding-top: .5rem; border-right: 0; border-bottom: 1px solid var(--calendar-grid); }
   .project-navigation { grid-template-columns: repeat(2, auto); }
   .calendar-content { grid-template-columns: minmax(0, 1fr); }
   .calendar-content > #date-navigation { grid-row: 1; justify-self: end; }
+  .calendar-content:has(> #date-navigation) { grid-template-rows: auto minmax(0, 1fr); }
 }

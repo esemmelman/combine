@@ -924,7 +924,9 @@ function renderCalendar(resetScroll = false) {
   const now = new Date();
   const today = dateKey(now);
   const key = dateKey(selected);
-  const scrollLeft = calendarBody.querySelector('.schedule, .gantt-scroll')?.scrollLeft || 0;
+  const previousChart = calendarBody.querySelector('.schedule, .gantt-scroll');
+  const scrollLeft = previousChart?.scrollLeft || 0;
+  const scrollTop = previousChart?.scrollTop || 0;
   byId('date-picker').value = key;
   byId('days').setAttribute('aria-pressed', String(view === 'days'));
   byId('hours').setAttribute('aria-pressed', String(view === 'hours'));
@@ -959,6 +961,7 @@ function renderCalendar(resetScroll = false) {
     const previousScroll = !resetScroll && ganttStart ? scrollLeft : undefined;
     ganttStart ??= selected;
     ganttDateCount = renderGantt(ganttStart, today, previousScroll);
+    calendarBody.querySelector('.gantt-scroll').scrollTop = scrollTop;
     ganttWidth = calendarBody.clientWidth;
   }
   if (restoreToggleFocus) panelToggle.focus({ preventScroll: true });
