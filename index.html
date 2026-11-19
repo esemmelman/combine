@@ -8,7 +8,7 @@
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0"></script>
   <script defer src="dayflow-config.js"></script>
   <script defer src="planner-sync.js?v=5"></script>
-  <script defer src="app.js?v=41"></script>
+  <script defer src="app.js?v=42"></script>
 </head>
 <body>
   <main>
@@ -56,7 +56,8 @@
     <form id="edit-form">
       <h2 id="edit-title"></h2>
       <label id="name-field">Name<input name="title" maxlength="180" required></label>
-      <label id="date-field">Date<input name="date" type="date"></label>
+      <label id="date-field"><span id="date-label">Date</span><input name="date" type="date"></label>
+      <label id="end-date-field" hidden>End date <small>(optional)</small><input name="endDate" type="date"></label>
       <label id="time-field">Time <small>(optional)</small><input name="time" type="time"></label>
       <fieldset id="notes-field">
         <legend id="notes-label">Notes</legend>

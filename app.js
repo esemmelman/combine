@@ -4,7 +4,7 @@ const byId = id => document.getElementById(id);
 const storageKey = 'combine:planner:v1';
 const dragType = 'application/x-combine-task';
 const ganttScrollDays = 28;
-const clearSchedule = { date: '', time: '', ganttColor: null };
+const clearSchedule = { date: '', endDate: '', time: '', ganttColor: null };
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 const pad = number => String(number).padStart(2, '0');
 const dateKey = date => [date.getFullYear(), pad(date.getMonth() + 1), pad(date.getDate())].join('-');
@@ -271,10 +271,15 @@ function inlineTaskForm(formId, entry, collection, projectId) {
 
 function openEditor(item, collection) {
   editing = { item: { ...item }, collection };
-  const { title, date, time } = editForm.elements;
+  const { title, date, endDate, time } = editForm.elements;
   byId('edit-title').textContent = collection === 'projects' ? 'Project properties' : 'Task properties';
+  const isTask = collection === 'tasks';
+  byId('date-label').textContent = isTask ? 'Start date' : 'Date';
+  byId('end-date-field').hidden = !isTask;
   title.value = item.title;
   date.value = item.date || '';
+  endDate.value = isTask && date.value ? item.endDate || '' : '';
+  updateDateConstraints();
   time.value = item.time || '';
   notes.replaceChildren();
   for (const html of noteEntries(item)) addNoteEditor(html);
@@ -362,9 +367,18 @@ notes.addEventListener('paste', event => {
 });
 notes.addEventListener('drop', event => event.preventDefault());
 
+function updateDateConstraints() {
+  const { date, endDate } = editForm.elements;
+  date.required = Boolean(endDate.value);
+  endDate.min = date.value;
+}
+
+editForm.elements.date.addEventListener('input', updateDateConstraints);
+editForm.elements.endDate.addEventListener('input', updateDateConstraints);
+
 editForm.addEventListener('submit', event => {
   event.preventDefault();
-  const { title, date, time } = editForm.elements;
+  const { title, date, endDate, time } = editForm.elements;
   if (!title.value.trim()) return;
   const { item, collection } = editing;
   const patch = {};
@@ -375,6 +389,7 @@ editForm.addEventListener('submit', event => {
   if (date.value !== (item.date || '') || clock !== (item.time || '')) {
     Object.assign(patch, date.value ? { date: date.value, time: clock } : clearSchedule);
   }
+  if (collection === 'tasks' && endDate.value !== (item.endDate || '')) patch.endDate = endDate.value;
   editor.close();
   if (Object.keys(patch).length) commit([{ collection, id: item.id, patch }]);
   if (patch.date) navigate(parseDate(patch.date));
@@ -452,7 +467,12 @@ function dropTarget(item, date, time) {
   plannerDropTarget(item, (entry, collection) => {
     selected = parseDate(date);
     const clock = time ?? entry.time ?? '';
-    commit([{ collection, id: entry.id, patch: { date, time: clock } }]);
+    const patch = { date, time: clock };
+    if (collection === 'tasks' && entry.date && entry.endDate >= entry.date) {
+      const span = (Date.parse(entry.endDate) - Date.parse(entry.date)) / 86400000;
+      patch.endDate = dateKey(shift(selected, span));
+    }
+    commit([{ collection, id: entry.id, patch }]);
     byId('notice').textContent = entry.title + ' scheduled for ' + date + (clock ? ' at ' + timeLabel(minutesOf(clock)) : '');
   });
 }
@@ -466,18 +486,24 @@ function moveIntoNames(entry, collection) {
   byId('notice').textContent = entry.title + ' moved to column A';
 }
 
-function plannerEvent({ entry, collection }) {
+function plannerEvent({ entry, collection, time }) {
   const item = button(entry.title, null, () => openEditor(entry, collection), 'event planner');
-  const details = [collection === 'projects' ? 'Project' : '', entry.time ? timeLabel(minutesOf(entry.time)) : ''].filter(Boolean);
+  const details = [collection === 'projects' ? 'Project' : '', time ? timeLabel(minutesOf(time)) : ''].filter(Boolean);
   if (details.length) item.append(element('small', '', details.join(' · ')));
   draggable(item, entry, collection);
   return item;
 }
 
+function scheduledOn(entry, date, collection) {
+  return entry?.date && entry.date <= date &&
+    (entry.date === date || (collection === 'tasks' && entry.endDate >= date));
+}
+
 function scheduledEntries(date) {
   return ['tasks', 'projects'].flatMap(collection => state[collection]
-    .filter(entry => entry.date === date).map(entry => ({ entry, collection })))
-    .sort((first, second) => (first.entry.time || '').localeCompare(second.entry.time || ''));
+    .filter(entry => scheduledOn(entry, date, collection))
+    .map(entry => ({ entry, collection, time: entry.date === date ? entry.time || '' : '' })))
+    .sort((first, second) => first.time.localeCompare(second.time));
 }
 
 function standaloneTasks() {
@@ -588,10 +614,11 @@ function renderGantt(start, today, scrollLeft) {
     for (const { key, weekend } of dates) {
       const cell = row.insertCell();
       cell.classList.toggle('weekend', weekend);
-      if (entry?.date === key) {
+      if (scheduledOn(entry, key, collection)) {
         const color = entry.ganttColor === 'green' ? 'green' : 'red';
         const mark = button('', entry.title + ', scheduled ' + key + ', ' + color, () => openEditor(entry, collection), 'gantt-mark');
         mark.id = 'gantt-mark-' + collection + '-' + entry.id;
+        if (key !== entry.date) mark.id += '-' + key;
         mark.classList.toggle('green', color === 'green');
         mark.addEventListener('contextmenu', event => openGanttMarkMenu(event, entry, collection));
         draggable(mark, entry, collection);
@@ -767,8 +794,8 @@ function renderSchedule(key) {
     if (!allDay) slot.dataset.hour = hour;
     const items = [];
     for (const scheduled of entries) {
-      const start = minutesOf(scheduled.entry.time);
-      if (allDay ? !scheduled.entry.time : start >= minutes && start < minutes + 60) items.push(plannerEvent(scheduled));
+      const start = minutesOf(scheduled.time);
+      if (allDay ? !scheduled.time : start >= minutes && start < minutes + 60) items.push(plannerEvent(scheduled));
     }
     for (const item of dayFlowItems) {
       const occurs = item.start !== null && item.start < minutes + 60 && (item.end ?? item.start + 1) > minutes;
