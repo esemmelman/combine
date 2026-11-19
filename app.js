@@ -41,7 +41,7 @@ let ganttWidth;
 let ganttStart;
 let ganttVisibleStart;
 let ganttDateCount;
-let ganttFilter = '';
+let plannerFilter = '';
 let editing;
 let remoteItems = [];
 let remoteUser = null;
@@ -500,6 +500,25 @@ function scheduledOn(entry, date, collection) {
     (entry.date === date || (collection === 'tasks' && entry.endDate >= date));
 }
 
+function filterPlannerRows(rows, firstDate, lastDate) {
+  const matchingEntries = new Set();
+  const matchingProjects = new Set();
+  for (const { entry, collection } of rows) {
+    const matches = plannerFilter === 'unassigned' ? collection === 'tasks' && entry && !entry.date :
+      scheduledOn(entry, firstDate, collection) || (entry?.date > firstDate && entry.date <= lastDate);
+    if (matches) {
+      matchingEntries.add(entry);
+      if (collection === 'tasks' && entry.projectId) matchingProjects.add(entry.projectId);
+    }
+  }
+  for (const { row, entry, collection, draftFor } of rows) {
+    const anchor = draftFor || entry;
+    const isVisible = matchingEntries.has(anchor) ||
+      ((draftFor || collection === 'projects') && matchingProjects.has(anchor?.id));
+    row.classList.toggle('gantt-outside-range', !isVisible);
+  }
+}
+
 function scheduledEntries(date) {
   return ['tasks', 'projects'].flatMap(collection => state[collection]
     .filter(entry => scheduledOn(entry, date, collection))
@@ -513,7 +532,7 @@ function standaloneTasks() {
 }
 
 function renderStandalonePanel() {
-  const tasks = view === 'days' && ganttFilter === 'unassigned' ? [] : standaloneTasks();
+  const tasks = plannerFilter === 'unassigned' ? [] : standaloneTasks();
   byId('standalone-tasks').replaceChildren(...tasks.filter(task => !task.date && !task.inGantt).map(task => {
     const name = button(task.title, null, () => openEditor(task, 'tasks'), 'standalone-task');
     draggable(name, task);
@@ -631,8 +650,8 @@ function renderGantt(start, today, scrollLeft) {
   // Measure the project and task column before adding dates.
   const dayWidth = parseFloat(getComputedStyle(chart).getPropertyValue('--gantt-day-width'));
   const namesWidth = table.getBoundingClientRect().width;
-  const unassigned = ganttFilter === 'unassigned';
-  const ganttDayLimit = ganttFilter === 'today' ? 1 : ganttFilter === 'five-days' ? 5 : 0;
+  const unassigned = plannerFilter === 'unassigned';
+  const ganttDayLimit = plannerFilter === 'today' ? 1 : plannerFilter === 'five-days' ? 5 : 0;
   const visibleDays = ganttDayLimit || Math.max(1, Math.floor((chart.clientWidth - namesWidth) / dayWidth));
   if (ganttDayLimit) {
     chart.style.maxWidth = namesWidth + visibleDays * dayWidth + 'px';
@@ -705,23 +724,7 @@ function renderGantt(start, today, scrollLeft) {
     ganttVisibleStart = dates[index].date;
     const last = dates[index + visibleDays - 1];
     if (ganttDayLimit || unassigned) {
-      const firstKey = dates[index].key;
-      const matchingEntries = new Set();
-      const matchingProjects = new Set();
-      for (const { entry, collection } of plannerRows) {
-        const matches = unassigned ? collection === 'tasks' && entry && !entry.date :
-          scheduledOn(entry, firstKey, collection) || (entry?.date > firstKey && entry.date <= last.key);
-        if (matches) {
-          matchingEntries.add(entry);
-          if (collection === 'tasks' && entry.projectId) matchingProjects.add(entry.projectId);
-        }
-      }
-      for (const { row, entry, collection, draftFor } of plannerRows) {
-        const anchor = draftFor || entry;
-        const isVisible = matchingEntries.has(anchor) ||
-          ((draftFor || collection === 'projects') && matchingProjects.has(anchor?.id));
-        row.classList.toggle('gantt-outside-range', !isVisible);
-      }
+      filterPlannerRows(plannerRows, dates[index].key, last.key);
     }
     const lastLabel = format(last.date, { ...shortDate, year: 'numeric' });
     byId('calendar-title').textContent = visibleDays === 1 ? lastLabel :
@@ -801,7 +804,7 @@ function addPlannerRows(table, addDateCells = () => {}) {
     row.firstElementChild.append(inlineTaskForm(formId, entry, collection, projectId));
     return row;
   }
-  const includeAllStandalone = view === 'days' && ganttFilter === 'unassigned';
+  const includeAllStandalone = plannerFilter === 'unassigned';
   for (const task of standaloneTasks().filter(task => includeAllStandalone || task.date || task.inGantt)) {
     addRow(task, 'tasks');
     addDraft(task, 'tasks', null);
@@ -866,12 +869,17 @@ function renderSchedule(key) {
   const names = element('table', 'gantt times-names');
   names.setAttribute('aria-label', 'Column A, projects and tasks');
   names.createTHead().insertRow().append(plannerNamesHeading());
-  addPlannerRows(names);
+  const plannerRows = [];
+  addPlannerRows(names, (row, entry, collection, draftFor) => plannerRows.push({ row, entry, collection, draftFor }));
+  if (plannerFilter) {
+    const lastDate = plannerFilter === 'five-days' ? dateKey(shift(parseDate(key), 4)) : key;
+    filterPlannerRows(plannerRows, key, lastDate);
+  }
   const schedule = element('div', 'schedule');
   schedule.tabIndex = 0;
   schedule.setAttribute('role', 'region');
   schedule.setAttribute('aria-label', 'Hourly schedule');
-  const entries = scheduledEntries(key);
+  const entries = plannerFilter === 'unassigned' ? [] : scheduledEntries(key);
   const dayFlowItems = (remoteUser ? remoteItems : device.backup).filter(item => item.date === key);
   const hours = Array.from({ length: 17 }, (_, index) => index + 6);
   const grid = element('div', 'times-grid');
@@ -990,15 +998,11 @@ byId('planner-actions').addEventListener('change', event => {
   event.target.value = '';
   switch (action) {
     case 'today':
-      ganttFilter = ganttFilter === action ? '' : action;
-      if (view === 'hours') {
-        if (ganttFilter) selected = new Date();
-        changeView('days');
-      } else if (ganttFilter) {
-        goToToday();
-      } else {
-        renderCalendar();
-      }
+    case 'five-days':
+    case 'unassigned':
+      plannerFilter = plannerFilter === action ? '' : action;
+      if (plannerFilter === 'today') goToToday();
+      else renderCalendar();
       break;
     case 'collapse':
     case 'expand': {
@@ -1006,20 +1010,6 @@ byId('planner-actions').addEventListener('change', event => {
       calendarBody.querySelectorAll(`.gantt-toggle[aria-expanded="${expanded}"]`).forEach(toggle => toggle.click());
       break;
     }
-    case 'five-days':
-      if (view === 'hours') {
-        ganttFilter = action;
-        changeView('days');
-      } else {
-        ganttFilter = ganttFilter === action ? '' : action;
-        renderCalendar();
-      }
-      break;
-    case 'unassigned':
-      ganttFilter = ganttFilter === action ? '' : action;
-      if (view === 'hours') changeView('days');
-      else renderCalendar();
-      break;
     case 'sort':
       commit([{ collection: 'projects', sortByTitle: true }]);
       break;
