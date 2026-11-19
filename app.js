@@ -462,9 +462,11 @@ function renderGantt(start, today) {
   const table = element('table', 'gantt');
   const header = table.createTHead();
   const weekdays = header.insertRow();
+  const monthsRow = header.insertRow();
   const datesRow = header.insertRow();
   const namesHeading = plannerNamesHeading();
-  namesHeading.rowSpan = 2;
+  namesHeading.rowSpan = 3;
+  namesHeading.append(byId('toggle-standalone-panel'));
   weekdays.append(namesHeading);
   const plannerRows = [];
   addPlannerRows(table, (row, entry, collection) => plannerRows.push({ row, entry, collection }));
@@ -480,21 +482,25 @@ function renderGantt(start, today) {
   dates.forEach((date, index) => {
     const key = keys[index];
     const weekday = element('th', '', format(date, { weekday: 'narrow' }));
+    const month = element('th', '', pad(date.getMonth() + 1));
     const cell = element('th');
     cell.scope = 'col';
-    const heading = button(pad(date.getMonth() + 1) + '-' + pad(date.getDate()), 'Show times for ' + format(date, { dateStyle: 'full' }), () => {
+    const heading = button(pad(date.getDate()), 'Show times for ' + format(date, { dateStyle: 'full' }), () => {
       selected = date;
       changeView('hours');
     }, 'gantt-date');
     if (key === today) {
       weekday.classList.add('current-day');
+      month.classList.add('current-day');
       cell.classList.add('current-day');
       heading.setAttribute('aria-current', 'date');
     }
     cell.append(heading);
     weekdays.append(weekday);
+    monthsRow.append(month);
     datesRow.append(cell);
     dropTarget(weekday, key, null);
+    dropTarget(month, key, null);
     dropTarget(cell, key, null);
   });
   for (const { row, entry, collection } of plannerRows) {
@@ -682,10 +688,14 @@ function renderCalendar(resetScroll = false) {
   byId('previous').setAttribute('aria-label', view === 'days' ? 'Previous week' : 'Previous day');
   byId('next').setAttribute('aria-label', view === 'days' ? 'Next week' : 'Next day');
   const dateNavigation = byId('date-navigation');
-  const navigationParent = view === 'days' ? calendarBody.parentElement : document.querySelector('.project-navigation');
+  const panelToggle = byId('toggle-standalone-panel');
+  const restoreToggleFocus = document.activeElement === panelToggle;
+  const projectNavigation = byId('add-project').parentElement;
+  if (view === 'hours' && panelToggle.parentElement !== projectNavigation) projectNavigation.append(panelToggle);
+  const navigationParent = view === 'days' ? calendarBody.parentElement : projectNavigation;
   if (dateNavigation.parentElement !== navigationParent) {
     if (view === 'days') navigationParent.append(dateNavigation);
-    else navigationParent.insertBefore(dateNavigation, byId('toggle-standalone-panel'));
+    else navigationParent.insertBefore(dateNavigation, panelToggle);
   }
   if (view === 'hours') {
     byId('calendar-title').textContent = format(selected, { dateStyle: 'full' });
@@ -706,6 +716,7 @@ function renderCalendar(resetScroll = false) {
     byId('calendar-title').textContent = format(weekStart, shortDate) + ' – ' + format(lastDate, { ...shortDate, year: 'numeric' });
     if (!resetScroll) chart.scrollLeft = scrollLeft;
   }
+  if (restoreToggleFocus) panelToggle.focus({ preventScroll: true });
 }
 
 function changeView(nextView) {
