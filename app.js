@@ -245,7 +245,15 @@ function inlineTaskForm(formId, entry, collection, projectId) {
   input.required = true;
   input.maxLength = 180;
   input.value = byId(form.id)?.elements.title.value || '';
-  form.append(input);
+  function cancelDraft() {
+    if (activeDictation?.formId === formId) activeDictation.cancel();
+    taskDraftRows.delete(formId);
+    renderCalendar();
+    byId(formId + '-trigger')?.focus();
+  }
+  const cancel = button('×', 'Cancel new task', cancelDraft, 'gantt-draft-cancel');
+  cancel.title = 'Cancel new task';
+  form.append(input, cancel);
   wireAdd(form, title => {
     taskDraftRows.delete(formId);
     const edit = createItem('tasks', { title, projectId, date: '', time: '', ...(!projectId && { inGantt: true }) });
@@ -254,11 +262,7 @@ function inlineTaskForm(formId, entry, collection, projectId) {
     commit([edit]);
   });
   input.addEventListener('keydown', event => {
-    if (event.key !== 'Escape') return;
-    if (activeDictation?.formId === formId) activeDictation.cancel();
-    taskDraftRows.delete(formId);
-    renderCalendar();
-    byId(formId + '-trigger')?.focus();
+    if (event.key === 'Escape') cancelDraft();
   });
   return form;
 }

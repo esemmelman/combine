@@ -67,6 +67,7 @@ h2 { font-size: 1.15rem; }
 .gantt .gantt-child .gantt-row-label { padding-left: 2.15rem; }
 .gantt-row-label form { padding: .08rem .3rem .08rem 0; }
 .gantt-row-label input { width: 12ch; padding: .05rem .3rem; font-size: .88rem; line-height: 1.2; }
+.gantt-draft-cancel { padding: 0 .3rem; line-height: 1; }
 .gantt-project .gantt-row-label { padding-left: 1.55rem; font-weight: 700; cursor: text; }
 .gantt td { position: relative; width: var(--gantt-day-width); min-width: var(--gantt-day-width); height: 1.25rem; background: #fafafa; }
 .gantt td.weekend { background: #eae8e2; }
