@@ -56,6 +56,7 @@ h2 { font-size: 1.15rem; }
 .gantt thead th { height: 1.45rem; background: var(--calendar-heading); font-size: .8rem; }
 .gantt-scroll thead th { height: 1rem; line-height: 1.15; }
 .gantt-day { width: var(--gantt-day-width); min-width: var(--gantt-day-width); }
+.gantt-outside-range { display: none; }
 .gantt-month { position: relative; }
 .gantt-month span { position: absolute; inset-block-start: 0; inset-inline-start: 2px; white-space: nowrap; pointer-events: none; }
 .gantt-scroll .gantt-names { text-align: left; }

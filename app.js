@@ -619,7 +619,7 @@ function renderGantt(start, today, scrollLeft) {
   namesHeading.append(byId('toggle-standalone-panel'));
   weekdays.append(namesHeading);
   const plannerRows = [];
-  addPlannerRows(table, (row, entry, collection) => plannerRows.push({ row, entry, collection }));
+  addPlannerRows(table, (row, entry, collection, draftFor) => plannerRows.push({ row, entry, collection, draftFor }));
   chart.append(table);
   calendarBody.replaceChildren(chart);
 
@@ -627,7 +627,10 @@ function renderGantt(start, today, scrollLeft) {
   const dayWidth = parseFloat(getComputedStyle(chart).getPropertyValue('--gantt-day-width'));
   const namesWidth = table.getBoundingClientRect().width;
   const visibleDays = ganttFiveDays ? 5 : Math.max(1, Math.floor((chart.clientWidth - namesWidth) / dayWidth));
-  if (ganttFiveDays) chart.style.maxWidth = namesWidth + visibleDays * dayWidth + 'px';
+  if (ganttFiveDays) {
+    chart.style.maxWidth = namesWidth + visibleDays * dayWidth + 'px';
+    namesHeading.style.minWidth = namesHeading.getBoundingClientRect().width + 'px';
+  }
   const dates = Array.from({ length: visibleDays + 2 * ganttScrollDays + 1 }, (_, index) => {
     const date = shift(start, index - ganttScrollDays);
     const weekday = date.getDay();
@@ -691,9 +694,26 @@ function renderGantt(start, today, scrollLeft) {
     if (index === visibleIndex) return;
     visibleIndex = index;
     ganttVisibleStart = dates[index].date;
-    const lastDate = dates[index + visibleDays - 1].date;
+    const last = dates[index + visibleDays - 1];
+    if (ganttFiveDays) {
+      const firstKey = dates[index].key;
+      const matchingEntries = new Set();
+      const matchingProjects = new Set();
+      for (const { entry, collection } of plannerRows) {
+        if (scheduledOn(entry, firstKey, collection) || (entry?.date > firstKey && entry.date <= last.key)) {
+          matchingEntries.add(entry);
+          if (collection === 'tasks' && entry.projectId) matchingProjects.add(entry.projectId);
+        }
+      }
+      for (const { row, entry, collection, draftFor } of plannerRows) {
+        const anchor = draftFor || entry;
+        const isVisible = matchingEntries.has(anchor) ||
+          ((draftFor || collection === 'projects') && matchingProjects.has(anchor?.id));
+        row.classList.toggle('gantt-outside-range', !isVisible);
+      }
+    }
     byId('calendar-title').textContent = format(ganttVisibleStart, shortDate) + ' – ' +
-      format(lastDate, { ...shortDate, year: 'numeric' });
+      format(last.date, { ...shortDate, year: 'numeric' });
   }
   chart.addEventListener('scroll', updateVisibleDates);
   updateVisibleDates();
@@ -710,7 +730,7 @@ function plannerNamesHeading() {
 
 function addPlannerRows(table, addDateCells = () => {}) {
   const body = table.createTBody();
-  function addRow(entry, collection, child = false) {
+  function addRow(entry, collection, child = false, draftFor) {
     const row = body.insertRow();
     const label = element('th', 'gantt-row-label');
     label.scope = 'row';
@@ -759,13 +779,13 @@ function addPlannerRows(table, addDateCells = () => {}) {
     } else {
       plannerDropTarget(label, moveIntoNames, child ? entry : null);
     }
-    addDateCells(row, entry, collection);
+    addDateCells(row, entry, collection, draftFor);
     return row;
   }
   function addDraft(entry, collection, projectId) {
     const formId = 'insert-task-' + collection + '-' + entry.id;
     if (!taskDraftRows.has(formId)) return;
-    const row = addRow(null, 'tasks', Boolean(projectId));
+    const row = addRow(null, 'tasks', Boolean(projectId), entry);
     row.firstElementChild.append(inlineTaskForm(formId, entry, collection, projectId));
     return row;
   }
