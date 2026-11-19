@@ -553,6 +553,57 @@ function openGanttMarkMenu(event, entry, collection) {
   menu.firstElementChild.focus({ preventScroll: true });
 }
 
+function addGanttExtensionHandle(cell, dates, dayWidth, task) {
+  const handle = element('span', 'gantt-extend');
+  handle.title = 'Drag to extend the end date';
+  const row = cell.parentElement;
+  const chart = cell.closest('.gantt-scroll');
+  const endIndex = cell.cellIndex - 1;
+  const previewClass = task.ganttColor === 'green' ? 'gantt-extension-green' : 'gantt-extension-red';
+  let pointerId;
+  let previewEnd = endIndex;
+
+  function previewThrough(index) {
+    for (let day = Math.min(previewEnd, index) + 1; day <= Math.max(previewEnd, index); day++) {
+      row.cells[day + 1].classList.toggle(previewClass, day <= index);
+    }
+    previewEnd = index;
+  }
+
+  function updatePreview(event) {
+    if (event.pointerId !== pointerId) return;
+    const firstDateLeft = row.cells[1].getBoundingClientRect().left;
+    const x = Math.min(event.clientX, chart.getBoundingClientRect().right - 1);
+    const index = Math.floor((x - firstDateLeft) / dayWidth);
+    previewThrough(Math.max(endIndex, Math.min(dates.length - 1, index)));
+  }
+
+  handle.addEventListener('pointerdown', event => {
+    if (event.button !== 0 || pointerId !== undefined) return;
+    event.preventDefault();
+    pointerId = event.pointerId;
+    handle.setPointerCapture(pointerId);
+  });
+  handle.addEventListener('pointermove', updatePreview);
+  handle.addEventListener('lostpointercapture', event => {
+    if (event.pointerId !== pointerId) return;
+    pointerId = undefined;
+    previewThrough(endIndex);
+  });
+  handle.addEventListener('pointerup', event => {
+    if (event.pointerId !== pointerId) return;
+    updatePreview(event);
+    const endDate = dates[previewEnd].key;
+    const extended = previewEnd > endIndex;
+    pointerId = undefined;
+    previewThrough(endIndex);
+    if (!extended) return;
+    commit([{ collection: 'tasks', id: task.id, patch: { endDate } }]);
+    byId('notice').textContent = task.title + ' extended through ' + endDate;
+  });
+  cell.append(handle);
+}
+
 function renderGantt(start, today, scrollLeft) {
   const chart = element('div', 'gantt-scroll');
   chart.tabIndex = 0;
@@ -625,6 +676,9 @@ function renderGantt(start, today, scrollLeft) {
         mark.addEventListener('contextmenu', event => openGanttMarkMenu(event, entry, collection));
         draggable(mark, entry, collection);
         cell.append(mark);
+        if (collection === 'tasks' && key === (entry.endDate > entry.date ? entry.endDate : entry.date)) {
+          addGanttExtensionHandle(cell, dates, dayWidth, entry);
+        }
       }
       dropTarget(cell, key, null);
     }

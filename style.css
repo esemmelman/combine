@@ -90,6 +90,10 @@ h2 { font-size: 1.15rem; }
 .gantt-toggle { position: absolute; left: .2rem; top: 0; bottom: 0; width: 1.45rem; padding: 0 0 .3rem; line-height: 1; }
 .gantt-mark { position: absolute; inset: 0; width: 100%; background: #e41f26; }
 .gantt-mark.green { background: #208044; }
+.gantt-extend { position: absolute; inset: 0 0 0 auto; width: 6px; cursor: e-resize; touch-action: none; }
+.gantt-extend:hover, .gantt-extend:active { background: #ffffff59; }
+.gantt td.gantt-extension-red { background: #e41f2699; }
+.gantt td.gantt-extension-green { background: #20804499; }
 .gantt-mark-menu { position: fixed; inset: auto; margin: 0; padding: .25rem; border: 1px solid var(--line); border-radius: 8px; background: white; box-shadow: 0 4px 12px #20263726; }
 .gantt-mark-menu button { display: block; width: 100%; border: 0; padding: .25rem .7rem; text-align: left; }
 .gantt-mark-menu button:hover { background: #f0eff6; }
