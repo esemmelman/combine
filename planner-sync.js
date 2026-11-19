@@ -5,7 +5,12 @@ const emptyPlanner = () => ({ tasks: [], projects: [] });
 function applyPlannerEdits(planner, edits) {
   for (const { collection, id, patch, create, beforeId, afterId, sortByTitle, addDate, removeDate } of edits) {
     if (collection === 'projects' && sortByTitle) {
-      planner.projects.sort((first, second) => first.title.localeCompare(second.title, 'en', { sensitivity: 'base', numeric: true }));
+      planner.projects.sort((first, second) => {
+        const firstIsGeneral = first.title.trim().toLowerCase() === 'general';
+        const secondIsGeneral = second.title.trim().toLowerCase() === 'general';
+        if (firstIsGeneral !== secondIsGeneral) return firstIsGeneral ? -1 : 1;
+        return first.title.localeCompare(second.title, 'en', { sensitivity: 'base', numeric: true });
+      });
       continue;
     }
     if (collection === 'tasks' && patch?.projectId &&
