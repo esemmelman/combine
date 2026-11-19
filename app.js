@@ -650,7 +650,7 @@ function addPlannerRows(table, addDateCells = () => {}) {
         }
         const input = byId(formId)?.elements.title;
         input?.focus();
-        if (isProject) input?.click();
+        input?.click();
       }, 'gantt-insert');
       insert.id = formId + '-trigger';
       insert.title = isProject ? 'Add task to project' : 'Insert task below';
