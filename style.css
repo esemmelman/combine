@@ -37,6 +37,7 @@ main:has(> #standalone-panel[hidden]) { grid-template-columns: minmax(0, 1fr); }
 #toggle-standalone-panel { grid-column: 1; justify-self: center; min-width: 2rem; padding: 0 .5rem; line-height: 1.4; }
 .inline { display: flex; gap: .4rem; }
 .inline input { flex: 1; min-width: 0; }
+#today { margin-inline-start: .5rem; }
 h1, h2 { margin: 0 0 .65rem; letter-spacing: -.035em; }
 h1 { margin: 0; font-size: 1.1rem; }
 h2 { font-size: 1.15rem; }
