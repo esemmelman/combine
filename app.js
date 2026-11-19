@@ -184,7 +184,9 @@ function listenForName(formId) {
     if (activeDictation !== session) return;
     const field = byId(formId)?.elements.title;
     if (!field || field.value !== transcript) return;
-    const text = Array.from(event.results, result => result[0].transcript.trim()).join(' ').trim().slice(0, field.maxLength);
+    const text = Array.from(event.results, result => result[0].transcript.trim()).join(' ').trim()
+      .replace(/\p{L}/u, letter => letter.toLocaleUpperCase(recognition.lang || undefined))
+      .slice(0, field.maxLength);
     if (text === transcript) return;
     transcript = text;
     field.value = text;
