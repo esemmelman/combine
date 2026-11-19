@@ -36,6 +36,8 @@ let state = device;
 let selected = new Date();
 let view = 'days';
 let ganttWidth;
+let ganttStart;
+let ganttDateCount;
 let editing;
 let remoteItems = [];
 let remoteUser = null;
@@ -522,7 +524,7 @@ function renderGantt(start, today) {
       dropTarget(cell, key, null);
     }
   }
-  return { chart, lastDate: dates.at(-1).date };
+  return { chart, dayCount };
 }
 
 function plannerNamesHeading() {
@@ -541,7 +543,7 @@ function addPlannerRows(table, addDateCells = () => {}) {
     label.scope = 'row';
     if (entry) {
       const name = button(entry.title, null, () => openEditor(entry, collection), 'gantt-name');
-      if (child && (view === 'hours' ? entry.time : entry.date)) name.classList.add('scheduled-project-task');
+      if (child && (entry.date || entry.time)) name.classList.add('scheduled-project-task');
       name.title = entry.title;
       draggable(name, entry, collection);
       const actions = element('div', 'gantt-name-actions');
@@ -693,8 +695,8 @@ function renderCalendar(resetScroll = false) {
   byId('date-picker').value = key;
   byId('days').setAttribute('aria-pressed', String(view === 'days'));
   byId('hours').setAttribute('aria-pressed', String(view === 'hours'));
-  byId('previous').setAttribute('aria-label', view === 'days' ? 'Previous week' : 'Previous day');
-  byId('next').setAttribute('aria-label', view === 'days' ? 'Next week' : 'Next day');
+  byId('previous').setAttribute('aria-label', view === 'days' ? 'Previous page of dates' : 'Previous day');
+  byId('next').setAttribute('aria-label', view === 'days' ? 'Next page of dates' : 'Next day');
   const dateNavigation = byId('date-navigation');
   const panelToggle = byId('toggle-standalone-panel');
   const restoreToggleFocus = document.activeElement === panelToggle;
@@ -717,11 +719,13 @@ function renderCalendar(resetScroll = false) {
       schedule.scrollLeft = scrollLeft;
     }
   } else {
-    const weekStart = shift(selected, -((selected.getDay() + 6) % 7));
+    ganttStart ??= shift(selected, -((selected.getDay() + 6) % 7));
     const shortDate = { month: 'short', day: 'numeric' };
-    const { chart, lastDate } = renderGantt(weekStart, today);
+    const { chart, dayCount } = renderGantt(ganttStart, today);
+    const lastDate = shift(ganttStart, dayCount - 1);
+    ganttDateCount = dayCount;
     ganttWidth = calendarBody.clientWidth;
-    byId('calendar-title').textContent = format(weekStart, shortDate) + ' – ' + format(lastDate, { ...shortDate, year: 'numeric' });
+    byId('calendar-title').textContent = format(ganttStart, shortDate) + ' – ' + format(lastDate, { ...shortDate, year: 'numeric' });
     if (!resetScroll) chart.scrollLeft = scrollLeft;
   }
   if (restoreToggleFocus) panelToggle.focus({ preventScroll: true });
@@ -730,20 +734,31 @@ function renderCalendar(resetScroll = false) {
 function changeView(nextView) {
   if (view === nextView) return;
   view = nextView;
+  ganttStart = undefined;
   renderCalendar(true);
   loadDayFlow();
 }
 
-function navigate(date) {
+function navigate(date, pageStart) {
   selected = date;
-  renderCalendar();
+  ganttStart = pageStart;
+  renderCalendar(Boolean(pageStart));
   loadDayFlow();
+}
+
+function moveDates(direction) {
+  if (view === 'hours') {
+    navigate(shift(selected, direction));
+    return;
+  }
+  const step = direction * ganttDateCount;
+  navigate(shift(selected, step), shift(ganttStart, step));
 }
 
 byId('days').onclick = () => changeView('days');
 byId('hours').onclick = () => changeView('hours');
-byId('previous').onclick = () => navigate(shift(selected, view === 'days' ? -7 : -1));
-byId('next').onclick = () => navigate(shift(selected, view === 'days' ? 7 : 1));
+byId('previous').onclick = () => moveDates(-1);
+byId('next').onclick = () => moveDates(1);
 byId('today').onclick = () => navigate(new Date());
 byId('date-picker').onchange = event => {
   if (event.target.value) navigate(parseDate(event.target.value));
