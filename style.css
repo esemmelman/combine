@@ -49,8 +49,9 @@ h2 { font-size: 1.15rem; }
 .views [aria-pressed="true"] { background: white; color: var(--accent); border-color: var(--line); font-weight: 650; }
 .planner { background: var(--planner); color: #332575; }
 .dayflow { background: var(--dayflow); color: #145747; }
-.gantt-scroll { overflow-x: auto; }
+.gantt-scroll { --gantt-day-width: 52px; overflow-x: auto; }
 .gantt { width: 100%; border-collapse: collapse; color: #171717; }
+.gantt-scroll > .gantt { width: max-content; }
 .gantt th, .gantt td { border: 1px solid var(--calendar-grid); padding: 0; }
 .gantt thead th { height: 1.45rem; background: var(--calendar-heading); font-size: .8rem; }
 .gantt thead .current-day { background: #ffd8ab; }
@@ -61,7 +62,7 @@ h2 { font-size: 1.15rem; }
 .gantt-row-label form { padding: .08rem .3rem .08rem 0; }
 .gantt-row-label input { width: 12ch; padding: .05rem .3rem; font-size: .88rem; line-height: 1.2; }
 .gantt-project .gantt-row-label { padding-left: 1.55rem; font-weight: 700; cursor: text; }
-.gantt td { position: relative; width: 52px; min-width: 52px; height: 1.25rem; background: #fafafa; }
+.gantt td { position: relative; width: var(--gantt-day-width); min-width: var(--gantt-day-width); height: 1.25rem; background: #fafafa; }
 .gantt-name, .gantt-date, .gantt-toggle, .gantt-mark, .gantt-insert { border: 0; border-radius: 0; background: transparent; }
 .gantt-name, .gantt-date { display: block; padding: .04rem .35rem; }
 .gantt-name-actions { display: flex; }

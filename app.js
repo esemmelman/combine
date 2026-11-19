@@ -35,6 +35,7 @@ const device = readStorage(storageKey, { ...emptyPlanner(), backup: [] });
 let state = device;
 let selected = new Date();
 let view = 'hours';
+let ganttWidth;
 let editing;
 let remoteItems = [];
 let remoteUser = null;
@@ -457,7 +458,7 @@ function renderGantt(start, today) {
   const chart = element('div', 'gantt-scroll');
   chart.tabIndex = 0;
   chart.setAttribute('role', 'region');
-  chart.setAttribute('aria-label', 'Weekly Gantt chart');
+  chart.setAttribute('aria-label', 'Gantt chart');
   const table = element('table', 'gantt');
   const header = table.createTHead();
   const weekdays = header.insertRow();
@@ -465,7 +466,16 @@ function renderGantt(start, today) {
   const namesHeading = plannerNamesHeading();
   namesHeading.rowSpan = 2;
   weekdays.append(namesHeading);
-  const dates = Array.from({ length: 7 }, (_, index) => shift(start, index));
+  const plannerRows = [];
+  addPlannerRows(table, (row, entry, collection) => plannerRows.push({ row, entry, collection }));
+  chart.append(table);
+  calendarBody.replaceChildren(chart);
+
+  // Measure the project and task column before adding dates.
+  const dayWidth = parseFloat(getComputedStyle(chart).getPropertyValue('--gantt-day-width'));
+  const availableWidth = chart.clientWidth - table.getBoundingClientRect().width;
+  const dayCount = Math.max(7, Math.floor(availableWidth / dayWidth));
+  const dates = Array.from({ length: dayCount }, (_, index) => shift(start, index));
   const keys = dates.map(dateKey);
   dates.forEach((date, index) => {
     const key = keys[index];
@@ -487,7 +497,7 @@ function renderGantt(start, today) {
     dropTarget(weekday, key, null);
     dropTarget(cell, key, null);
   });
-  addPlannerRows(table, (row, entry, collection) => {
+  for (const { row, entry, collection } of plannerRows) {
     for (const key of keys) {
       const cell = row.insertCell();
       if (entry?.date === key) {
@@ -497,9 +507,8 @@ function renderGantt(start, today) {
       }
       dropTarget(cell, key, null);
     }
-  });
-  chart.append(table);
-  return chart;
+  }
+  return { chart, lastDate: dates.at(-1) };
 }
 
 function plannerNamesHeading() {
@@ -666,12 +675,7 @@ function renderCalendar(resetScroll = false) {
   const now = new Date();
   const today = dateKey(now);
   const key = dateKey(selected);
-  const weekStart = shift(selected, -((selected.getDay() + 6) % 7));
-  const shortDate = { month: 'short', day: 'numeric' };
   const scrollLeft = calendarBody.querySelector('.schedule, .gantt-scroll')?.scrollLeft || 0;
-  byId('calendar-title').textContent = view === 'days' ?
-    format(weekStart, shortDate) + ' – ' + format(shift(weekStart, 6), { ...shortDate, year: 'numeric' }) :
-    format(selected, { dateStyle: 'full' });
   byId('date-picker').value = key;
   byId('days').setAttribute('aria-pressed', String(view === 'days'));
   byId('hours').setAttribute('aria-pressed', String(view === 'hours'));
@@ -683,9 +687,10 @@ function renderCalendar(resetScroll = false) {
     if (view === 'days') navigationParent.append(dateNavigation);
     else navigationParent.insertBefore(dateNavigation, byId('toggle-standalone-panel'));
   }
-  const content = view === 'days' ? renderGantt(weekStart, today) : renderSchedule(key);
-  calendarBody.replaceChildren(content);
   if (view === 'hours') {
+    byId('calendar-title').textContent = format(selected, { dateStyle: 'full' });
+    const content = renderSchedule(key);
+    calendarBody.replaceChildren(content);
     const schedule = content.querySelector('.schedule');
     if (resetScroll) {
       const hour = Math.max(6, Math.min(22, now.getHours()));
@@ -693,8 +698,13 @@ function renderCalendar(resetScroll = false) {
     } else {
       schedule.scrollLeft = scrollLeft;
     }
-  } else if (!resetScroll) {
-    content.scrollLeft = scrollLeft;
+  } else {
+    const weekStart = shift(selected, -((selected.getDay() + 6) % 7));
+    const shortDate = { month: 'short', day: 'numeric' };
+    const { chart, lastDate } = renderGantt(weekStart, today);
+    ganttWidth = calendarBody.clientWidth;
+    byId('calendar-title').textContent = format(weekStart, shortDate) + ' – ' + format(lastDate, { ...shortDate, year: 'numeric' });
+    if (!resetScroll) chart.scrollLeft = scrollLeft;
   }
 }
 
@@ -929,6 +939,9 @@ byId('toggle-standalone-panel').onclick = event => {
   toggle.textContent = panel.hidden ? '›' : '‹';
 };
 renderCalendar(true);
+new ResizeObserver(() => {
+  if (view === 'days' && calendarBody.clientWidth !== ganttWidth) renderCalendar();
+}).observe(calendarBody);
 updateBackupStatus();
 if (!client) {
   updateAccount(null);
