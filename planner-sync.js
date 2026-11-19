@@ -3,7 +3,11 @@
 const emptyPlanner = () => ({ tasks: [], projects: [] });
 
 function applyPlannerEdits(planner, edits) {
-  for (const { collection, id, patch, create, beforeId, afterId } of edits) {
+  for (const { collection, id, patch, create, beforeId, afterId, sortByTitle } of edits) {
+    if (collection === 'projects' && sortByTitle) {
+      planner.projects.sort((first, second) => first.title.localeCompare(second.title, 'en', { sensitivity: 'base', numeric: true }));
+      continue;
+    }
     if (collection === 'tasks' && patch?.projectId &&
       !planner.projects.some(project => project.id === patch.projectId)) continue;
     const items = planner[collection];

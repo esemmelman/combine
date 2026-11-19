@@ -41,6 +41,7 @@ let ganttWidth;
 let ganttStart;
 let ganttVisibleStart;
 let ganttDateCount;
+let ganttFiveDays = false;
 let editing;
 let remoteItems = [];
 let remoteUser = null;
@@ -573,8 +574,9 @@ function renderGantt(start, today, scrollLeft) {
 
   // Measure the project and task column before adding dates.
   const dayWidth = parseFloat(getComputedStyle(chart).getPropertyValue('--gantt-day-width'));
-  const availableWidth = chart.clientWidth - table.getBoundingClientRect().width;
-  const visibleDays = Math.max(1, Math.floor(availableWidth / dayWidth));
+  const namesWidth = table.getBoundingClientRect().width;
+  const visibleDays = ganttFiveDays ? 5 : Math.max(1, Math.floor((chart.clientWidth - namesWidth) / dayWidth));
+  if (ganttFiveDays) chart.style.maxWidth = namesWidth + visibleDays * dayWidth + 'px';
   const dates = Array.from({ length: visibleDays + 2 * ganttScrollDays + 1 }, (_, index) => {
     const date = shift(start, index - ganttScrollDays);
     const weekday = date.getDay();
@@ -891,6 +893,30 @@ function moveDates(direction) {
 
 byId('days').onclick = () => changeView('days');
 byId('hours').onclick = () => changeView('hours');
+byId('planner-actions').addEventListener('change', event => {
+  const action = event.target.value;
+  event.target.value = '';
+  switch (action) {
+    case 'collapse':
+    case 'expand': {
+      const expanded = action === 'collapse';
+      calendarBody.querySelectorAll(`.gantt-toggle[aria-expanded="${expanded}"]`).forEach(toggle => toggle.click());
+      break;
+    }
+    case 'five-days':
+      if (view === 'hours') {
+        ganttFiveDays = true;
+        changeView('days');
+      } else {
+        ganttFiveDays = !ganttFiveDays;
+        renderCalendar();
+      }
+      break;
+    case 'sort':
+      commit([{ collection: 'projects', sortByTitle: true }]);
+      break;
+  }
+});
 byId('previous').onclick = () => moveDates(-1);
 byId('next').onclick = () => moveDates(1);
 byId('today').onclick = () => {
