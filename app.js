@@ -215,7 +215,7 @@ function listenForName(formId) {
 wireAdd(byId('add-task'), title => {
   const form = byId('add-task');
   form.reset();
-  commit([createItem('tasks', { title, projectId: null, date: '', time: '' })]);
+  commit([createItem('tasks', { title, projectId: null, date: '', time: '', inGantt: true })]);
   form.elements.title.focus();
 });
 wireAdd(byId('add-project'), title => {
