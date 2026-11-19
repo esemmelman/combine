@@ -553,11 +553,12 @@ function openGanttMarkMenu(event, entry, collection) {
   menu.firstElementChild.focus({ preventScroll: true });
 }
 
-function addGanttExtensionHandle(cell, dates, dayWidth, task) {
-  const handle = element('span', 'gantt-extend');
-  handle.title = 'Drag to extend the end date';
+function addGanttResizeHandle(cell, dates, dayWidth, task) {
+  const handle = element('span', 'gantt-resize');
+  handle.title = 'Drag to change the end date';
   const row = cell.parentElement;
   const chart = cell.closest('.gantt-scroll');
+  const startIndex = dates.findIndex(({ key }) => key >= task.date);
   const endIndex = cell.cellIndex - 1;
   const previewClass = task.ganttColor === 'green' ? 'gantt-extension-green' : 'gantt-extension-red';
   let pointerId;
@@ -565,7 +566,9 @@ function addGanttExtensionHandle(cell, dates, dayWidth, task) {
 
   function previewThrough(index) {
     for (let day = Math.min(previewEnd, index) + 1; day <= Math.max(previewEnd, index); day++) {
-      row.cells[day + 1].classList.toggle(previewClass, day <= index);
+      const dayCell = row.cells[day + 1];
+      if (day > endIndex) dayCell.classList.toggle(previewClass, day <= index);
+      else dayCell.classList.toggle('gantt-trim-preview', day > index);
     }
     previewEnd = index;
   }
@@ -573,9 +576,10 @@ function addGanttExtensionHandle(cell, dates, dayWidth, task) {
   function updatePreview(event) {
     if (event.pointerId !== pointerId) return;
     const firstDateLeft = row.cells[1].getBoundingClientRect().left;
-    const x = Math.min(event.clientX, chart.getBoundingClientRect().right - 1);
+    const datesLeft = row.cells[0].getBoundingClientRect().right;
+    const x = Math.max(datesLeft, Math.min(event.clientX, chart.getBoundingClientRect().right - 1));
     const index = Math.floor((x - firstDateLeft) / dayWidth);
-    previewThrough(Math.max(endIndex, Math.min(dates.length - 1, index)));
+    previewThrough(Math.max(startIndex, Math.min(dates.length - 1, index)));
   }
 
   handle.addEventListener('pointerdown', event => {
@@ -594,12 +598,12 @@ function addGanttExtensionHandle(cell, dates, dayWidth, task) {
     if (event.pointerId !== pointerId) return;
     updatePreview(event);
     const endDate = dates[previewEnd].key;
-    const extended = previewEnd > endIndex;
+    const changed = previewEnd !== endIndex;
     pointerId = undefined;
     previewThrough(endIndex);
-    if (!extended) return;
-    commit([{ collection: 'tasks', id: task.id, patch: { endDate } }]);
-    byId('notice').textContent = task.title + ' extended through ' + endDate;
+    if (!changed) return;
+    commit([{ collection: 'tasks', id: task.id, patch: { endDate: endDate === task.date ? '' : endDate } }]);
+    byId('notice').textContent = task.title + ' now ends on ' + endDate;
   });
   cell.append(handle);
 }
@@ -680,7 +684,7 @@ function renderGantt(start, today, scrollLeft) {
         draggable(mark, entry, collection);
         cell.append(mark);
         if (collection === 'tasks' && key === (entry.endDate > entry.date ? entry.endDate : entry.date)) {
-          addGanttExtensionHandle(cell, dates, dayWidth, entry);
+          addGanttResizeHandle(cell, dates, dayWidth, entry);
         }
       }
       dropTarget(cell, key, null);
