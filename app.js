@@ -781,11 +781,15 @@ function openTaskMenu(event, task) {
   showPlannerMenu(event, menu);
 }
 
+function ganttColor(entry) {
+  return entry.ganttColor === 'green' || entry.ganttColor === 'yellow' ? entry.ganttColor : 'red';
+}
+
 function openGanttMarkMenu(event, entry, collection, date) {
   const mark = event.currentTarget;
   const menu = plannerMenu('Gantt square actions');
-  for (const label of ['Red', 'Green', 'Clear']) {
-    menu.append(button(label, null, () => {
+  for (const label of ['Red', 'Yellow', 'Green', 'Clear']) {
+    const choice = button(label, null, () => {
       const clear = label === 'Clear';
       const patch = clear ? { ...clearSchedule } : { ganttColor: label.toLowerCase() };
       if (clear && collection === 'tasks' && standaloneTasks().includes(entry)) patch.inGantt = true;
@@ -793,7 +797,9 @@ function openGanttMarkMenu(event, entry, collection, date) {
       commit([{ collection, id: entry.id, patch }]);
       const focusId = clear ? 'gantt-name-' + collection + '-' + entry.id : mark.id;
       byId(focusId)?.focus({ preventScroll: true });
-    }));
+    });
+    if (label === 'Yellow') choice.title = 'Partially complete';
+    menu.append(choice);
   }
   if (collection === 'tasks' && entry.extraDates?.includes(date) &&
       (date < entry.date || date > (entry.endDate > entry.date ? entry.endDate : entry.date))) {
@@ -831,7 +837,7 @@ function addGanttResizeHandle(cell, dates, dayWidth, task) {
   const chart = cell.closest('.gantt-scroll');
   const startIndex = dates.findIndex(({ key }) => key >= task.date);
   const endIndex = cell.cellIndex - 1;
-  const previewClass = task.ganttColor === 'green' ? 'gantt-extension-green' : 'gantt-extension-red';
+  const previewClass = 'gantt-extension-' + ganttColor(task);
   let pointerId;
   let previewEnd = endIndex;
 
@@ -950,11 +956,12 @@ function renderGantt(start, today, scrollLeft) {
       const cell = row.insertCell();
       cell.classList.toggle('weekend', weekend);
       if (scheduledBetween(entry, key, key, collection)) {
-        const color = entry.ganttColor === 'green' ? 'green' : 'red';
-        const mark = button('', entry.title + ', scheduled ' + key + ', ' + color, () => openEditor(entry, collection), 'gantt-mark');
+        const color = ganttColor(entry);
+        const status = color === 'yellow' ? 'yellow, partially complete' : color;
+        const mark = button('', entry.title + ', scheduled ' + key + ', ' + status, () => openEditor(entry, collection), 'gantt-mark');
         mark.id = 'gantt-mark-' + collection + '-' + entry.id;
         if (key !== entry.date) mark.id += '-' + key;
-        mark.classList.toggle('green', color === 'green');
+        mark.classList.add(color);
         mark.addEventListener('contextmenu', event => openGanttMarkMenu(event, entry, collection, key));
         draggable(mark, entry, collection);
         cell.append(mark);
@@ -1011,7 +1018,7 @@ function addPlannerRows(table, addDateCells = () => {}) {
       const name = button(entry.title, null, () => openEditor(entry, collection), 'gantt-name');
       name.id = 'gantt-name-' + collection + '-' + entry.id;
       if ((collection === 'tasks' || entry.ganttColor) && (entry.date || entry.time)) {
-        name.classList.add(entry.ganttColor === 'green' ? 'green-gantt-name' : 'red-gantt-name');
+        name.classList.add(ganttColor(entry) + '-gantt-name');
       }
       name.title = entry.title;
       if (collection === 'tasks') name.addEventListener('contextmenu', event => openTaskMenu(event, entry));
