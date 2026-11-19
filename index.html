@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Combine · Planner</title>
-  <link rel="stylesheet" href="style.css?v=40">
+  <link rel="stylesheet" href="style.css?v=41">
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0"></script>
   <script defer src="dayflow-config.js"></script>
   <script defer src="planner-sync.js?v=5"></script>
@@ -25,13 +25,13 @@
           <form id="add-project" class="inline">
             <input name="title" aria-label="Project name" enterkeyhint="go" required maxlength="180">
           </form>
+          <div class="views" role="group" aria-label="Calendar view">
+            <button id="days" aria-pressed="true">Gantt</button>
+            <button id="hours" aria-pressed="false">Times</button>
+          </div>
           <div id="date-navigation">
             <button id="previous" type="button" aria-label="Previous day">←</button>
             <button id="next" type="button" aria-label="Next day">→</button>
-            <div class="views" role="group" aria-label="Calendar view">
-              <button id="days" aria-pressed="true">Gantt</button>
-              <button id="hours" aria-pressed="false">Times</button>
-            </div>
           </div>
           <button id="toggle-standalone-panel" type="button" aria-controls="standalone-panel" aria-expanded="true" aria-label="Hide standalone tasks">‹</button>
         </div>

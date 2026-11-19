@@ -30,7 +30,7 @@ main:has(> #standalone-panel[hidden]) { grid-template-columns: minmax(0, 1fr); }
 #add-task input, #add-project input, .gantt-row-label input { border-color: #74798a; }
 #add-task input:invalid, #add-project input:invalid, .gantt-row-label input:invalid { background: #e3e5ed; }
 #add-project input { width: 15ch; }
-.project-navigation { display: grid; grid-template-columns: repeat(2, auto); align-items: start; gap: .15rem; }
+.project-navigation { display: grid; grid-template-columns: repeat(3, auto); align-items: start; gap: .15rem; }
 #date-navigation { display: flex; align-items: center; gap: .15rem; }
 .calendar-content { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; }
 .calendar-content > #date-navigation { padding-inline: .15rem; }
@@ -126,6 +126,7 @@ dialog { max-height: calc(100% - 2rem); }
 @media (max-width: 540px) {
   main { grid-template-columns: minmax(0, 1fr); }
   #standalone-panel { padding-top: .5rem; border-right: 0; border-bottom: 1px solid var(--calendar-grid); }
+  .project-navigation { grid-template-columns: repeat(2, auto); }
   .calendar-content { grid-template-columns: minmax(0, 1fr); }
   .calendar-content > #date-navigation { grid-row: 1; justify-self: end; }
 }
