@@ -284,23 +284,24 @@ function inlineTaskForm(formId, entry, collection, projectId) {
 
 function openEditor(item, collection, scheduling = false) {
   const isTask = collection === 'tasks';
-  const autosave = isTask && !scheduling;
+  const details = !scheduling;
+  const autosave = isTask && details;
   editing = { item: { ...item }, collection, autosave, links: [...(item.links || [])] };
   const { title, date, endDate, time } = editForm.elements;
   const heading = byId('edit-title');
   heading.textContent = !isTask ? 'Project properties' : scheduling ? 'Task scheduling' : 'Task properties';
   heading.classList.toggle('sr-only', autosave);
-  editor.classList.toggle('task-details', autosave);
+  editor.classList.toggle('rich-details', details);
   byId('date-field').hidden = autosave;
   byId('time-field').hidden = autosave;
   byId('date-label').textContent = isTask ? 'Start date' : 'Date';
   byId('end-date-field').hidden = !scheduling;
-  byId('description-field').hidden = !autosave;
-  taskDescription.innerHTML = autosave ? cleanNotes(item.description || '') : '';
-  byId('task-links-field').hidden = !autosave;
+  byId('description-field').hidden = !details;
+  taskDescription.innerHTML = details ? cleanNotes(item.description || '') : '';
+  byId('task-links-field').hidden = !details;
   linkName.value = linkUrl.value = '';
   linkUrl.setCustomValidity('');
-  if (autosave) renderTaskLinks();
+  if (details) renderTaskLinks();
   byId('notes-field').hidden = scheduling;
   byId('remove').hidden = autosave;
   byId('cancel-edit').hidden = autosave;
@@ -314,7 +315,7 @@ function openEditor(item, collection, scheduling = false) {
   notes.replaceChildren();
   for (const html of noteEntries(item)) addNoteEditor(html);
   if (!notes.children.length) addNoteEditor();
-  activeNote = autosave ? taskDescription : notes.querySelector('.note-editor');
+  activeNote = details ? taskDescription : null;
   noteSelection = null;
   byId('unschedule').hidden = autosave || !item.date;
   const toggle = byId('toggle-project-tasks');
@@ -351,6 +352,16 @@ function noteEntries(item) {
 
 function editedNotes() {
   return [...notes.querySelectorAll('.note-editor')].map(field => cleanNotes(field.innerHTML)).filter(Boolean);
+}
+
+function richEditorChanges(item) {
+  const patch = {};
+  const description = cleanNotes(taskDescription.innerHTML);
+  const entries = editedNotes();
+  if (description !== (item.description || '')) patch.description = description;
+  if (JSON.stringify(entries) !== JSON.stringify(noteEntries(item))) patch.notes = entries;
+  if (JSON.stringify(editing.links) !== JSON.stringify(item.links || [])) patch.links = [...editing.links];
+  return patch;
 }
 
 function taskLinkUrl(text) {
@@ -411,14 +422,9 @@ function saveTaskEditor() {
   clearTimeout(taskSaveTimer);
   if (!editor.open || !editing?.autosave) return;
   const { item } = editing;
-  const patch = {};
+  const patch = richEditorChanges(item);
   const title = editForm.elements.title.value.trim();
-  const description = cleanNotes(taskDescription.innerHTML);
-  const entries = editedNotes();
   if (title && title !== item.title) patch.title = title;
-  if (description !== (item.description || '')) patch.description = description;
-  if (JSON.stringify(entries) !== JSON.stringify(noteEntries(item))) patch.notes = entries;
-  if (JSON.stringify(editing.links) !== JSON.stringify(item.links || [])) patch.links = [...editing.links];
   if (!Object.keys(patch).length) return;
   Object.assign(item, patch);
   commit([{ collection: 'tasks', id: item.id, patch }]);
@@ -595,10 +601,8 @@ editForm.addEventListener('submit', event => {
   const { title, date, endDate, time } = editForm.elements;
   if (!title.value.trim()) return;
   const { item, collection } = editing;
-  const patch = {};
-  const safeNotes = editedNotes();
+  const patch = collection === 'projects' ? richEditorChanges(item) : {};
   if (title.value.trim() !== item.title) patch.title = title.value.trim();
-  if (JSON.stringify(safeNotes) !== JSON.stringify(noteEntries(item))) patch.notes = safeNotes;
   const clock = date.value ? time.value : '';
   if (date.value !== (item.date || '') || clock !== (item.time || '')) {
     Object.assign(patch, date.value ? { date: date.value, time: clock } : clearSchedule);

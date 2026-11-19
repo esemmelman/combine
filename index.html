@@ -4,11 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Combine · Planner</title>
-  <link rel="stylesheet" href="style.css?v=59">
+  <link rel="stylesheet" href="style.css?v=60">
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0"></script>
   <script defer src="dayflow-config.js"></script>
   <script defer src="planner-sync.js?v=9"></script>
-  <script defer src="app.js?v=60"></script>
+  <script defer src="app.js?v=61"></script>
 </head>
 <body>
   <div id="notice" class="sr-only" role="status"></div>
@@ -67,35 +67,39 @@
     <div id="editor-dictation-status" class="sr-only" role="status"></div>
     <form id="edit-form">
       <h2 id="edit-title"></h2>
-      <label id="name-field">Name<input name="title" maxlength="180" required></label>
-      <label id="date-field"><span id="date-label">Date</span><input name="date" type="date"></label>
-      <label id="end-date-field" hidden>End date <small>(optional)</small><input name="endDate" type="date"></label>
-      <label id="time-field">Time <small>(optional)</small><input name="time" type="time"></label>
-      <fieldset id="description-field" hidden>
-        <legend>Description</legend>
-        <div id="description-toolbar" class="inline" role="group" aria-label="Description formatting"></div>
-        <div id="task-description" class="note-editor" contenteditable="true" role="textbox" aria-label="Description" aria-multiline="true"></div>
-      </fieldset>
-      <fieldset id="notes-field">
-        <legend id="notes-label">Notes</legend>
-        <div id="notes-toolbar" class="inline" role="group" aria-label="Text formatting">
-          <button type="button" data-command="bold" aria-label="Bold"><b>B</b></button>
-          <button type="button" data-command="italic" aria-label="Italic"><i>I</i></button>
-          <button type="button" data-command="underline" aria-label="Underline"><u>U</u></button>
-          <button type="button" data-command="insertUnorderedList">Bullets</button>
-          <button type="button" data-command="insertOrderedList">Numbered list</button>
-          <button type="button" data-command="dateStamp">Date stamp</button>
+      <div class="editor-content">
+        <div>
+          <label id="name-field">Name<input name="title" maxlength="180" required></label>
+          <label id="date-field"><span id="date-label">Date</span><input name="date" type="date"></label>
+          <label id="end-date-field" hidden>End date <small>(optional)</small><input name="endDate" type="date"></label>
+          <label id="time-field">Time <small>(optional)</small><input name="time" type="time"></label>
+          <fieldset id="description-field" hidden>
+            <legend>Description</legend>
+            <div id="description-toolbar" class="inline" role="group" aria-label="Description formatting"></div>
+            <div id="task-description" class="note-editor" contenteditable="true" role="textbox" aria-label="Description" aria-multiline="true"></div>
+          </fieldset>
+          <fieldset id="notes-field">
+            <legend id="notes-label">Notes</legend>
+            <div id="notes-toolbar" class="inline" role="group" aria-label="Text formatting">
+              <button type="button" data-command="bold" aria-label="Bold"><b>B</b></button>
+              <button type="button" data-command="italic" aria-label="Italic"><i>I</i></button>
+              <button type="button" data-command="underline" aria-label="Underline"><u>U</u></button>
+              <button type="button" data-command="insertUnorderedList">Bullets</button>
+              <button type="button" data-command="insertOrderedList">Numbered list</button>
+              <button type="button" data-command="dateStamp">Date stamp</button>
+            </div>
+            <div id="notes"></div>
+            <button id="add-note" type="button">Add note</button>
+          </fieldset>
         </div>
-        <div id="notes"></div>
-        <button id="add-note" type="button">Add note</button>
-      </fieldset>
-      <fieldset id="task-links-field" hidden>
-        <legend>Links</legend>
-        <ul id="task-links" aria-label="Saved links"></ul>
-        <label>Link name<input id="task-link-name" maxlength="120"></label>
-        <label>URL<input id="task-link-url" inputmode="url"></label>
-        <button type="button" id="add-task-link">Add link</button>
-      </fieldset>
+        <fieldset id="task-links-field" hidden>
+          <legend>Links</legend>
+          <ul id="task-links" aria-label="Saved links"></ul>
+          <label>Link name<input id="task-link-name" maxlength="120"></label>
+          <label>URL<input id="task-link-url" inputmode="url"></label>
+          <button type="button" id="add-task-link">Add link</button>
+        </fieldset>
+      </div>
       <div class="dialog-actions">
         <button type="button" id="remove" class="danger">Delete</button>
         <button type="button" id="unschedule" hidden>Unschedule</button>
