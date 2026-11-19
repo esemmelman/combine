@@ -49,12 +49,13 @@ h2 { font-size: 1.15rem; }
 .views [aria-pressed="true"] { background: white; color: var(--accent); border-color: var(--line); font-weight: 650; }
 .planner { background: var(--planner); color: #332575; }
 .dayflow { background: var(--dayflow); color: #145747; }
-.gantt-scroll { --gantt-day-width: 26px; overflow-x: auto; }
+.gantt-scroll { --gantt-day-width: 26px; overflow-x: scroll; }
 .gantt { width: 100%; border-collapse: collapse; color: #171717; }
 .gantt-scroll > .gantt { width: max-content; }
 .gantt th, .gantt td { border: 1px solid var(--calendar-grid); padding: 0; }
 .gantt thead th { height: 1.45rem; background: var(--calendar-heading); font-size: .8rem; }
 .gantt-scroll thead th { height: 1rem; line-height: 1.15; }
+.gantt-day { width: var(--gantt-day-width); min-width: var(--gantt-day-width); }
 .gantt-month { position: relative; }
 .gantt-month span { position: absolute; inset-block-start: 0; inset-inline-start: 2px; white-space: nowrap; pointer-events: none; }
 .gantt-scroll .gantt-names { text-align: left; }

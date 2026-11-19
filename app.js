@@ -3,6 +3,7 @@
 const byId = id => document.getElementById(id);
 const storageKey = 'combine:planner:v1';
 const dragType = 'application/x-combine-task';
+const ganttScrollDays = 28;
 const clearSchedule = { date: '', time: '', ganttColor: null };
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 const pad = number => String(number).padStart(2, '0');
@@ -38,6 +39,7 @@ let selected = new Date();
 let view = 'days';
 let ganttWidth;
 let ganttStart;
+let ganttVisibleStart;
 let ganttDateCount;
 let editing;
 let remoteItems = [];
@@ -524,7 +526,7 @@ function openGanttMarkMenu(event, entry, collection) {
   menu.firstElementChild.focus({ preventScroll: true });
 }
 
-function renderGantt(start, today) {
+function renderGantt(start, today, scrollLeft) {
   const chart = element('div', 'gantt-scroll');
   chart.tabIndex = 0;
   chart.setAttribute('role', 'region');
@@ -546,9 +548,9 @@ function renderGantt(start, today) {
   // Measure the project and task column before adding dates.
   const dayWidth = parseFloat(getComputedStyle(chart).getPropertyValue('--gantt-day-width'));
   const availableWidth = chart.clientWidth - table.getBoundingClientRect().width;
-  const dayCount = Math.max(7, Math.floor(availableWidth / dayWidth));
-  const dates = Array.from({ length: dayCount }, (_, index) => {
-    const date = shift(start, index);
+  const visibleDays = Math.max(1, Math.floor(availableWidth / dayWidth));
+  const dates = Array.from({ length: visibleDays + 2 * ganttScrollDays + 1 }, (_, index) => {
+    const date = shift(start, index - ganttScrollDays);
     const weekday = date.getDay();
     return { date, key: dateKey(date), weekend: weekday === 0 || weekday === 6 };
   });
@@ -557,7 +559,7 @@ function renderGantt(start, today) {
     const showMonth = date.getDay() === 1 || date.getDate() === 1;
     const month = element('th', 'gantt-month');
     if (showMonth) month.append(element('span', '', format(date, { month: 'short' })));
-    const cell = element('th');
+    const cell = element('th', 'gantt-day');
     cell.scope = 'col';
     const heading = button(pad(date.getDate()), 'Show times for ' + format(date, { dateStyle: 'full' }), () => {
       selected = date;
@@ -598,7 +600,21 @@ function renderGantt(start, today) {
       dropTarget(cell, key, null);
     }
   }
-  return { chart, dayCount };
+  chart.scrollLeft = scrollLeft ?? ganttScrollDays * dayWidth;
+  const shortDate = { month: 'short', day: 'numeric' };
+  let visibleIndex;
+  function updateVisibleDates() {
+    const index = Math.max(0, Math.min(dates.length - visibleDays, Math.round(chart.scrollLeft / dayWidth)));
+    if (index === visibleIndex) return;
+    visibleIndex = index;
+    ganttVisibleStart = dates[index].date;
+    const lastDate = dates[index + visibleDays - 1].date;
+    byId('calendar-title').textContent = format(ganttVisibleStart, shortDate) + ' – ' +
+      format(lastDate, { ...shortDate, year: 'numeric' });
+  }
+  chart.addEventListener('scroll', updateVisibleDates);
+  updateVisibleDates();
+  return visibleDays;
 }
 
 function plannerNamesHeading() {
@@ -814,14 +830,10 @@ function renderCalendar(resetScroll = false) {
       schedule.scrollLeft = scrollLeft;
     }
   } else {
+    const previousScroll = !resetScroll && ganttStart ? scrollLeft : undefined;
     ganttStart ??= selected;
-    const shortDate = { month: 'short', day: 'numeric' };
-    const { chart, dayCount } = renderGantt(ganttStart, today);
-    const lastDate = shift(ganttStart, dayCount - 1);
-    ganttDateCount = dayCount;
+    ganttDateCount = renderGantt(ganttStart, today, previousScroll);
     ganttWidth = calendarBody.clientWidth;
-    byId('calendar-title').textContent = format(ganttStart, shortDate) + ' – ' + format(lastDate, { ...shortDate, year: 'numeric' });
-    if (!resetScroll) chart.scrollLeft = scrollLeft;
   }
   if (restoreToggleFocus) panelToggle.focus({ preventScroll: true });
 }
@@ -846,8 +858,8 @@ function moveDates(direction) {
     navigate(shift(selected, direction));
     return;
   }
-  const step = direction * ganttDateCount;
-  navigate(shift(selected, step), shift(ganttStart, step));
+  const date = shift(ganttVisibleStart, direction * ganttDateCount);
+  navigate(date, date);
 }
 
 byId('days').onclick = () => changeView('days');
