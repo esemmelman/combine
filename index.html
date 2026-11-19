@@ -4,21 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Combine · Planner</title>
-  <link rel="stylesheet" href="style.css?v=27">
+  <link rel="stylesheet" href="style.css?v=28">
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0"></script>
   <script defer src="dayflow-config.js"></script>
   <script defer src="planner-sync.js?v=3"></script>
   <script defer src="app.js?v=23"></script>
 </head>
 <body>
-  <header class="top">
-    <a class="brand" href="./"><span aria-hidden="true">◫</span> Combine</a>
-    <div class="account-controls">
-      <span id="sync-status" role="status">On this device</span>
-      <button id="account-settings" type="button">Account</button>
-      <button id="dayflow-settings" type="button">DayFlow</button>
-    </div>
-  </header>
   <main>
     <aside id="standalone-panel" aria-label="Standalone tasks">
       <form id="add-task" class="inline">
@@ -45,7 +37,11 @@
           <button id="hours" aria-pressed="true">Times</button>
         </div>
         <button id="today">Today</button>
-        <div id="legend"><span><i class="planner"></i> Tasks</span><span><i class="dayflow"></i> DayFlow</span></div>
+        <div class="account-controls">
+          <span id="sync-status" role="status">On this device</span>
+          <button id="account-settings" type="button">Account</button>
+          <button id="dayflow-settings" type="button">DayFlow</button>
+        </div>
       </div>
       <div id="calendar-body"></div>
     </section>
