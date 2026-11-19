@@ -4,11 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Combine · Planner</title>
-  <link rel="stylesheet" href="style.css?v=34">
+  <link rel="stylesheet" href="style.css?v=35">
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0"></script>
   <script defer src="dayflow-config.js"></script>
   <script defer src="planner-sync.js?v=3"></script>
-  <script defer src="app.js?v=30"></script>
+  <script defer src="app.js?v=31"></script>
 </head>
 <body>
   <main>
@@ -36,8 +36,8 @@
           <label><span class="sr-only">Jump to date</span><input id="date-picker" type="date"></label>
         </div>
         <div class="views" role="group" aria-label="Calendar view">
-          <button id="days" aria-pressed="false">Gantt</button>
-          <button id="hours" aria-pressed="true">Times</button>
+          <button id="days" aria-pressed="true">Gantt</button>
+          <button id="hours" aria-pressed="false">Times</button>
         </div>
         <button id="today">Today</button>
         <div class="account-controls">

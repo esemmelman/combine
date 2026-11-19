@@ -34,7 +34,7 @@ function readStorage(key, fallback) {
 const device = readStorage(storageKey, { ...emptyPlanner(), backup: [] });
 let state = device;
 let selected = new Date();
-let view = 'hours';
+let view = 'days';
 let ganttWidth;
 let editing;
 let remoteItems = [];
@@ -477,10 +477,12 @@ function renderGantt(start, today) {
   const dayWidth = parseFloat(getComputedStyle(chart).getPropertyValue('--gantt-day-width'));
   const availableWidth = chart.clientWidth - table.getBoundingClientRect().width;
   const dayCount = Math.max(7, Math.floor(availableWidth / dayWidth));
-  const dates = Array.from({ length: dayCount }, (_, index) => shift(start, index));
-  const keys = dates.map(dateKey);
-  dates.forEach((date, index) => {
-    const key = keys[index];
+  const dates = Array.from({ length: dayCount }, (_, index) => {
+    const date = shift(start, index);
+    const weekday = date.getDay();
+    return { date, key: dateKey(date), weekend: weekday === 0 || weekday === 6 };
+  });
+  for (const { date, key, weekend } of dates) {
     const weekday = element('th', '', format(date, { weekday: 'narrow' }));
     const month = element('th', '', pad(date.getMonth() + 1));
     const cell = element('th');
@@ -489,6 +491,11 @@ function renderGantt(start, today) {
       selected = date;
       changeView('hours');
     }, 'gantt-date');
+    if (weekend) {
+      weekday.classList.add('weekend');
+      month.classList.add('weekend');
+      cell.classList.add('weekend');
+    }
     if (key === today) {
       weekday.classList.add('current-day');
       month.classList.add('current-day');
@@ -502,10 +509,11 @@ function renderGantt(start, today) {
     dropTarget(weekday, key, null);
     dropTarget(month, key, null);
     dropTarget(cell, key, null);
-  });
+  }
   for (const { row, entry, collection } of plannerRows) {
-    for (const key of keys) {
+    for (const { key, weekend } of dates) {
       const cell = row.insertCell();
+      cell.classList.toggle('weekend', weekend);
       if (entry?.date === key) {
         const mark = button('', entry.title + ', scheduled ' + key, () => openEditor(entry, collection), 'gantt-mark');
         draggable(mark, entry, collection);
@@ -514,7 +522,7 @@ function renderGantt(start, today) {
       dropTarget(cell, key, null);
     }
   }
-  return { chart, lastDate: dates.at(-1) };
+  return { chart, lastDate: dates.at(-1).date };
 }
 
 function plannerNamesHeading() {

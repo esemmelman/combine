@@ -57,6 +57,7 @@ h2 { font-size: 1.15rem; }
 .gantt-scroll thead th { height: 1rem; line-height: 1.15; }
 .gantt-scroll .gantt-names { text-align: left; }
 .gantt-names #toggle-standalone-panel { margin-inline-start: .75rem; min-width: 1.65rem; padding: 0 .35rem; }
+.gantt thead .weekend { background: #ddd6c0; }
 .gantt thead .current-day { background: #ffd8ab; }
 .gantt .gantt-names, .gantt-row-label { position: sticky; left: 0; z-index: 1; }
 .gantt .gantt-names { width: 1%; padding-inline: .4rem; white-space: nowrap; }
@@ -66,6 +67,7 @@ h2 { font-size: 1.15rem; }
 .gantt-row-label input { width: 12ch; padding: .05rem .3rem; font-size: .88rem; line-height: 1.2; }
 .gantt-project .gantt-row-label { padding-left: 1.55rem; font-weight: 700; cursor: text; }
 .gantt td { position: relative; width: var(--gantt-day-width); min-width: var(--gantt-day-width); height: 1.25rem; background: #fafafa; }
+.gantt td.weekend { background: #eae8e2; }
 .gantt-name, .gantt-date, .gantt-toggle, .gantt-mark, .gantt-insert { border: 0; border-radius: 0; background: transparent; }
 .gantt-name, .gantt-date { display: block; padding: .04rem .35rem; }
 .gantt-name-actions { display: flex; }
