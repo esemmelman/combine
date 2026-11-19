@@ -50,6 +50,10 @@ const editor = byId('editor');
 const editForm = byId('edit-form');
 const calendarBody = byId('calendar-body');
 const notes = byId('notes');
+const taskDescription = byId('task-description');
+const notesToolbar = byId('notes-toolbar');
+const descriptionToolbar = byId('description-toolbar');
+let taskSaveTimer;
 let noteSelection;
 let activeNote;
 let syncing = false;
@@ -272,13 +276,25 @@ function inlineTaskForm(formId, entry, collection, projectId) {
   return form;
 }
 
-function openEditor(item, collection) {
-  editing = { item: { ...item }, collection };
-  const { title, date, endDate, time } = editForm.elements;
-  byId('edit-title').textContent = collection === 'projects' ? 'Project properties' : 'Task properties';
+function openEditor(item, collection, scheduling = false) {
   const isTask = collection === 'tasks';
+  const autosave = isTask && !scheduling;
+  editing = { item: { ...item }, collection, autosave };
+  const { title, date, endDate, time } = editForm.elements;
+  const heading = byId('edit-title');
+  heading.textContent = !isTask ? 'Project properties' : scheduling ? 'Task scheduling' : 'Task properties';
+  heading.classList.toggle('sr-only', autosave);
+  byId('date-field').hidden = autosave;
+  byId('time-field').hidden = autosave;
   byId('date-label').textContent = isTask ? 'Start date' : 'Date';
-  byId('end-date-field').hidden = !isTask;
+  byId('end-date-field').hidden = !scheduling;
+  byId('description-field').hidden = !autosave;
+  taskDescription.innerHTML = autosave ? cleanNotes(item.description || '') : '';
+  byId('notes-field').hidden = scheduling;
+  byId('remove').hidden = autosave;
+  byId('cancel-edit').hidden = autosave;
+  byId('save-edit').hidden = autosave;
+  byId('done-task').hidden = !autosave;
   title.value = item.title;
   date.value = item.date || '';
   endDate.value = isTask && date.value ? item.endDate || '' : '';
@@ -287,9 +303,9 @@ function openEditor(item, collection) {
   notes.replaceChildren();
   for (const html of noteEntries(item)) addNoteEditor(html);
   if (!notes.children.length) addNoteEditor();
-  activeNote = notes.querySelector('.note-editor');
+  activeNote = autosave ? taskDescription : notes.querySelector('.note-editor');
   noteSelection = null;
-  byId('unschedule').hidden = !item.date;
+  byId('unschedule').hidden = autosave || !item.date;
   const toggle = byId('toggle-project-tasks');
   toggle.hidden = collection !== 'projects';
   toggle.textContent = collapsedProjects.has(item.id) ? 'Show tasks' : 'Hide tasks';
@@ -322,6 +338,43 @@ function noteEntries(item) {
   return entries.map(cleanNotes).filter(Boolean);
 }
 
+function editedNotes() {
+  return [...notes.querySelectorAll('.note-editor')].map(field => cleanNotes(field.innerHTML)).filter(Boolean);
+}
+
+function saveTaskEditor() {
+  clearTimeout(taskSaveTimer);
+  if (!editor.open || !editing?.autosave) return;
+  const { item } = editing;
+  const patch = {};
+  const title = editForm.elements.title.value.trim();
+  const description = cleanNotes(taskDescription.innerHTML);
+  const entries = editedNotes();
+  if (title && title !== item.title) patch.title = title;
+  if (description !== (item.description || '')) patch.description = description;
+  if (JSON.stringify(entries) !== JSON.stringify(noteEntries(item))) patch.notes = entries;
+  if (!Object.keys(patch).length) return;
+  Object.assign(item, patch);
+  commit([{ collection: 'tasks', id: item.id, patch }]);
+}
+
+function queueTaskSave() {
+  if (!editing?.autosave) return;
+  clearTimeout(taskSaveTimer);
+  taskSaveTimer = setTimeout(saveTaskEditor, 300);
+}
+
+editForm.addEventListener('input', queueTaskSave);
+editor.addEventListener('cancel', saveTaskEditor);
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) saveTaskEditor();
+});
+window.addEventListener('pagehide', saveTaskEditor);
+byId('done-task').addEventListener('click', () => {
+  saveTaskEditor();
+  editor.close();
+});
+
 function addNoteEditor(html = '') {
   const entry = element('div', 'note-entry');
   const field = element('div', 'note-editor');
@@ -334,13 +387,14 @@ function addNoteEditor(html = '') {
     entry.remove();
     noteSelection = null;
     (notes.querySelector('.note-editor') || addNoteEditor()).focus();
+    queueTaskSave();
   }));
   notes.append(entry);
   return field;
 }
 
 byId('add-note').addEventListener('click', () => addNoteEditor().focus());
-notes.addEventListener('focusin', event => {
+editForm.addEventListener('focusin', event => {
   if (!event.target.matches('.note-editor')) return;
   if (activeNote !== event.target) noteSelection = null;
   activeNote = event.target;
@@ -351,24 +405,33 @@ document.addEventListener('selectionchange', () => {
     noteSelection = selection.getRangeAt(0).cloneRange();
   }
 });
-byId('notes-toolbar').addEventListener('mousedown', event => event.preventDefault());
-byId('notes-toolbar').addEventListener('click', event => {
-  const control = event.target.closest('[data-command]');
-  if (!control || !activeNote) return;
-  activeNote.focus();
-  if (noteSelection && activeNote.contains(noteSelection.commonAncestorContainer)) {
-    const selection = document.getSelection();
-    selection.removeAllRanges();
-    selection.addRange(noteSelection);
-  }
-  document.execCommand('styleWithCSS', false, false);
-  document.execCommand(control.dataset.command);
-});
-notes.addEventListener('paste', event => {
-  event.preventDefault();
-  document.execCommand('insertText', false, event.clipboardData.getData('text/plain'));
-});
-notes.addEventListener('drop', event => event.preventDefault());
+descriptionToolbar.append(...[...notesToolbar.children].map(control => control.cloneNode(true)));
+for (const toolbar of [descriptionToolbar, notesToolbar]) {
+  toolbar.addEventListener('mousedown', event => event.preventDefault());
+  toolbar.addEventListener('click', event => {
+    const control = event.target.closest('[data-command]');
+    if (!control) return;
+    const field = toolbar === descriptionToolbar ? taskDescription :
+      notes.contains(activeNote) ? activeNote : notes.querySelector('.note-editor');
+    if (!field) return;
+    field.focus();
+    if (noteSelection && field.contains(noteSelection.commonAncestorContainer)) {
+      const selection = document.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(noteSelection);
+    }
+    document.execCommand('styleWithCSS', false, false);
+    document.execCommand(control.dataset.command);
+    queueTaskSave();
+  });
+}
+for (const container of [taskDescription, notes]) {
+  container.addEventListener('paste', event => {
+    event.preventDefault();
+    document.execCommand('insertText', false, event.clipboardData.getData('text/plain'));
+  });
+  container.addEventListener('drop', event => event.preventDefault());
+}
 
 function updateDateConstraints() {
   const { date, endDate } = editForm.elements;
@@ -381,11 +444,15 @@ editForm.elements.endDate.addEventListener('input', updateDateConstraints);
 
 editForm.addEventListener('submit', event => {
   event.preventDefault();
+  if (editing.autosave) {
+    saveTaskEditor();
+    return;
+  }
   const { title, date, endDate, time } = editForm.elements;
   if (!title.value.trim()) return;
   const { item, collection } = editing;
   const patch = {};
-  const safeNotes = [...notes.querySelectorAll('.note-editor')].map(field => cleanNotes(field.innerHTML)).filter(Boolean);
+  const safeNotes = editedNotes();
   if (title.value.trim() !== item.title) patch.title = title.value.trim();
   if (JSON.stringify(safeNotes) !== JSON.stringify(noteEntries(item))) patch.notes = safeNotes;
   const clock = date.value ? time.value : '';
@@ -496,6 +563,7 @@ function plannerEvent({ entry, collection, time }) {
   const item = button(entry.title, null, () => openEditor(entry, collection), 'event planner');
   const details = [collection === 'projects' ? 'Project' : '', time ? timeLabel(minutesOf(time)) : ''].filter(Boolean);
   if (details.length) item.append(element('small', '', details.join(' · ')));
+  if (collection === 'tasks') item.addEventListener('contextmenu', event => openTaskMenu(event, entry));
   draggable(item, entry, collection);
   return item;
 }
@@ -542,20 +610,36 @@ function renderStandalonePanel() {
   const tasks = plannerFilter === 'unassigned' ? [] : standaloneTasks();
   byId('standalone-tasks').replaceChildren(...tasks.filter(task => !task.date && !task.inGantt).map(task => {
     const name = button(task.title, null, () => openEditor(task, 'tasks'), 'standalone-task');
+    name.addEventListener('contextmenu', event => openTaskMenu(event, task));
     draggable(name, task);
     return name;
   }));
 }
 
-function openGanttMarkMenu(event, entry, collection, date) {
-  event.preventDefault();
-  const mark = event.currentTarget;
-  const chart = mark.closest('.gantt-scroll');
-  chart.querySelector('.gantt-mark-menu')?.remove();
+function plannerMenu(label) {
   const menu = element('div', 'gantt-mark-menu');
   menu.setAttribute('popover', 'auto');
   menu.setAttribute('role', 'group');
-  menu.setAttribute('aria-label', 'Gantt square color');
+  menu.setAttribute('aria-label', label);
+  return menu;
+}
+
+function addTaskSchedulingAction(menu, task) {
+  menu.append(button('Scheduling and deletion…', null, () => {
+    menu.hidePopover();
+    openEditor(task, 'tasks', true);
+  }));
+}
+
+function openTaskMenu(event, task) {
+  const menu = plannerMenu('Task actions');
+  addTaskSchedulingAction(menu, task);
+  showPlannerMenu(event, menu);
+}
+
+function openGanttMarkMenu(event, entry, collection, date) {
+  const mark = event.currentTarget;
+  const menu = plannerMenu('Gantt square actions');
   for (const label of ['Red', 'Green', 'Clear']) {
     menu.append(button(label, null, () => {
       const clear = label === 'Clear';
@@ -576,11 +660,18 @@ function openGanttMarkMenu(event, entry, collection, date) {
       byId('notice').textContent = date + ' removed from ' + entry.title;
     }));
   }
+  if (collection === 'tasks') addTaskSchedulingAction(menu, entry);
+  showPlannerMenu(event, menu);
+}
+
+function showPlannerMenu(event, menu) {
+  event.preventDefault();
+  calendarBody.querySelector('.gantt-mark-menu')?.remove();
   menu.addEventListener('toggle', event => {
     if (event.newState === 'closed') menu.remove();
   });
-  chart.append(menu);
-  mark.focus({ preventScroll: true });
+  calendarBody.append(menu);
+  event.currentTarget.focus({ preventScroll: true });
   menu.showPopover();
   const { width, height } = menu.getBoundingClientRect();
   const bounds = document.documentElement;
@@ -779,6 +870,7 @@ function addPlannerRows(table, addDateCells = () => {}) {
         name.classList.add(entry.ganttColor === 'green' ? 'green-gantt-name' : 'red-gantt-name');
       }
       name.title = entry.title;
+      if (collection === 'tasks') name.addEventListener('contextmenu', event => openTaskMenu(event, entry));
       draggable(name, entry, collection, child || collection === 'projects');
       const actions = element('div', 'gantt-name-actions');
       const formId = 'insert-task-' + collection + '-' + entry.id;
@@ -1129,7 +1221,10 @@ function updateAccount(session) {
     taskDraftRows.clear();
     remoteRequest++;
     remoteItems = [];
-    if (editor.open) editor.close();
+    if (editor.open) {
+      saveTaskEditor();
+      editor.close();
+    }
   }
   remoteUser = user;
   connectForm.hidden = Boolean(user) || !client;
