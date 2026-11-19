@@ -55,7 +55,7 @@ let activeNote;
 let syncing = false;
 let syncAgain = false;
 let activeDictation;
-let draggedProjectTask;
+let draggedRow;
 const collapsedProjects = new Set();
 const taskDraftRows = new Set();
 
@@ -225,15 +225,15 @@ wireAdd(byId('add-project'), title => {
   commit([createItem('projects', { title })]);
 });
 
-function draggable(item, entry, collection = 'tasks', reorderWithinProject = false) {
+function draggable(item, entry, collection = 'tasks', reorder = false) {
   item.draggable = true;
   item.addEventListener('dragstart', event => {
     event.dataTransfer.setData(dragType, collection + '/' + entry.id);
     event.dataTransfer.effectAllowed = 'move';
-    draggedProjectTask = reorderWithinProject ? entry : undefined;
+    draggedRow = reorder ? { entry, collection } : undefined;
   });
-  if (reorderWithinProject) item.addEventListener('dragend', () => {
-    draggedProjectTask = undefined;
+  if (reorder) item.addEventListener('dragend', () => {
+    draggedRow = undefined;
     calendarBody.querySelectorAll('.drop-before, .drop-after').forEach(label => {
       label.classList.remove('drop-before', 'drop-after');
     });
@@ -426,8 +426,9 @@ document.querySelectorAll('[data-close]').forEach(item => {
 });
 
 function plannerDropTarget(item, onDrop, reorderTarget) {
-  const canReorder = () => draggedProjectTask && reorderTarget &&
-    draggedProjectTask.projectId === reorderTarget.projectId && draggedProjectTask.id !== reorderTarget.id;
+  const isReorder = () => draggedRow && reorderTarget && draggedRow.collection === reorderTarget.collection;
+  const canReorder = () => draggedRow.entry.id !== reorderTarget.entry.id &&
+    (reorderTarget.collection === 'projects' || draggedRow.entry.projectId === reorderTarget.entry.projectId);
   const dropBefore = event => {
     const { top, height } = item.getBoundingClientRect();
     return event.clientY < top + height / 2;
@@ -435,10 +436,10 @@ function plannerDropTarget(item, onDrop, reorderTarget) {
   const clearDrop = () => item.classList.remove('drop-active', 'drop-before', 'drop-after');
   item.addEventListener('dragover', event => {
     if (!Array.from(event.dataTransfer.types).includes(dragType)) return;
-    if (reorderTarget && draggedProjectTask && !canReorder()) return;
+    if (isReorder() && !canReorder()) return;
     event.preventDefault();
     event.dataTransfer.dropEffect = 'move';
-    if (canReorder()) {
+    if (isReorder()) {
       const before = dropBefore(event);
       item.classList.toggle('drop-before', before);
       item.classList.toggle('drop-after', !before);
@@ -454,12 +455,13 @@ function plannerDropTarget(item, onDrop, reorderTarget) {
     const entry = state[collection].find(entry => entry.id === id);
     if (!entry) return;
     event.preventDefault();
-    if (reorderTarget && draggedProjectTask) {
-      if (!canReorder() || collection !== 'tasks' || id !== draggedProjectTask.id) return;
+    if (isReorder()) {
+      if (!canReorder() || collection !== draggedRow.collection || id !== draggedRow.entry.id) return;
       const anchor = dropBefore(event) ? 'beforeId' : 'afterId';
-      draggedProjectTask = undefined;
-      commit([{ collection, id, [anchor]: reorderTarget.id }]);
-      byId('notice').textContent = entry.title + ' moved ' + (anchor === 'beforeId' ? 'above ' : 'below ') + reorderTarget.title;
+      const target = reorderTarget.entry;
+      draggedRow = undefined;
+      commit([{ collection, id, [anchor]: target.id }]);
+      byId('notice').textContent = entry.title + ' moved ' + (anchor === 'beforeId' ? 'above ' : 'below ') + target.title;
       return;
     }
     onDrop(entry, collection);
@@ -758,7 +760,7 @@ function addPlannerRows(table, addDateCells = () => {}) {
         name.classList.add(entry.ganttColor === 'green' ? 'green-gantt-name' : 'red-gantt-name');
       }
       name.title = entry.title;
-      draggable(name, entry, collection, child);
+      draggable(name, entry, collection, child || collection === 'projects');
       const actions = element('div', 'gantt-name-actions');
       const formId = 'insert-task-' + collection + '-' + entry.id;
       const isProject = collection === 'projects';
@@ -792,9 +794,9 @@ function addPlannerRows(table, addDateCells = () => {}) {
         collapsedProjects.delete(entry.id);
         commit([{ collection: 'tasks', id: task.id, patch: { projectId: entry.id } }]);
         byId('notice').textContent = task.title + ' moved to ' + entry.title;
-      });
+      }, { entry, collection });
     } else {
-      plannerDropTarget(label, moveIntoNames, child ? entry : null);
+      plannerDropTarget(label, moveIntoNames, child && entry ? { entry, collection } : null);
     }
     addDateCells(row, entry, collection, draftFor);
     return row;

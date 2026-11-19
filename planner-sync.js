@@ -17,13 +17,15 @@ function applyPlannerEdits(planner, edits) {
       if (collection === 'projects') planner.tasks = planner.tasks.filter(task => task.projectId !== id);
     } else if (index >= 0) {
       if (create) continue;
-      if (collection === 'tasks' && (beforeId || afterId)) {
-        const task = items[index];
-        const anchor = items.findIndex(item => item.id === (beforeId ?? afterId) && item.projectId === task.projectId);
-        if (!task.projectId || anchor < 0 || anchor === index) continue;
+      if (beforeId || afterId) {
+        const entry = items[index];
+        if (collection === 'tasks' && !entry.projectId) continue;
+        const anchor = items.findIndex(item => item.id === (beforeId ?? afterId) &&
+          (collection === 'projects' || item.projectId === entry.projectId));
+        if (anchor < 0 || anchor === index) continue;
         const adjustedAnchor = index < anchor ? anchor - 1 : anchor;
         items.splice(index, 1);
-        items.splice(beforeId ? adjustedAnchor : adjustedAnchor + 1, 0, task);
+        items.splice(beforeId ? adjustedAnchor : adjustedAnchor + 1, 0, entry);
       } else Object.assign(items[index], patch);
     } else if (create) {
       const anchorId = beforeId ?? afterId;
