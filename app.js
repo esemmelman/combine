@@ -551,7 +551,8 @@ function renderGantt(start, today) {
   for (const { date, key, weekend } of dates) {
     const weekday = element('th', '', format(date, { weekday: 'narrow' }));
     const showMonth = date.getDay() === 1 || date.getDate() === 1;
-    const month = element('th', '', showMonth ? pad(date.getMonth() + 1) : '');
+    const month = element('th', 'gantt-month');
+    if (showMonth) month.append(element('span', '', format(date, { month: 'short' })));
     const cell = element('th');
     cell.scope = 'col';
     const heading = button(pad(date.getDate()), 'Show times for ' + format(date, { dateStyle: 'full' }), () => {
