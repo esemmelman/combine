@@ -4,11 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Combine · Planner</title>
-  <link rel="stylesheet" href="style.css?v=56">
+  <link rel="stylesheet" href="style.css?v=57">
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0"></script>
   <script defer src="dayflow-config.js"></script>
   <script defer src="planner-sync.js?v=8"></script>
-  <script defer src="app.js?v=57"></script>
+  <script defer src="app.js?v=58"></script>
 </head>
 <body>
   <div id="notice" class="sr-only" role="status"></div>
@@ -83,9 +83,17 @@
           <button type="button" data-command="underline" aria-label="Underline"><u>U</u></button>
           <button type="button" data-command="insertUnorderedList">Bullets</button>
           <button type="button" data-command="insertOrderedList">Numbered list</button>
+          <button type="button" data-command="dateStamp">Date stamp</button>
         </div>
         <div id="notes"></div>
         <button id="add-note" type="button">Add note</button>
+      </fieldset>
+      <fieldset id="task-links-field" hidden>
+        <legend>Links</legend>
+        <ul id="task-links" aria-label="Saved links"></ul>
+        <label>Link name<input id="task-link-name" maxlength="120"></label>
+        <label>URL<input id="task-link-url" inputmode="url"></label>
+        <button type="button" id="add-task-link">Add link</button>
       </fieldset>
       <div class="dialog-actions">
         <button type="button" id="remove" class="danger">Delete</button>

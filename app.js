@@ -53,6 +53,9 @@ const notes = byId('notes');
 const taskDescription = byId('task-description');
 const notesToolbar = byId('notes-toolbar');
 const descriptionToolbar = byId('description-toolbar');
+const taskLinks = byId('task-links');
+const linkName = byId('task-link-name');
+const linkUrl = byId('task-link-url');
 let taskSaveTimer;
 let noteSelection;
 let activeNote;
@@ -279,17 +282,22 @@ function inlineTaskForm(formId, entry, collection, projectId) {
 function openEditor(item, collection, scheduling = false) {
   const isTask = collection === 'tasks';
   const autosave = isTask && !scheduling;
-  editing = { item: { ...item }, collection, autosave };
+  editing = { item: { ...item }, collection, autosave, links: [...(item.links || [])] };
   const { title, date, endDate, time } = editForm.elements;
   const heading = byId('edit-title');
   heading.textContent = !isTask ? 'Project properties' : scheduling ? 'Task scheduling' : 'Task properties';
   heading.classList.toggle('sr-only', autosave);
+  editor.classList.toggle('task-details', autosave);
   byId('date-field').hidden = autosave;
   byId('time-field').hidden = autosave;
   byId('date-label').textContent = isTask ? 'Start date' : 'Date';
   byId('end-date-field').hidden = !scheduling;
   byId('description-field').hidden = !autosave;
   taskDescription.innerHTML = autosave ? cleanNotes(item.description || '') : '';
+  byId('task-links-field').hidden = !autosave;
+  linkName.value = linkUrl.value = '';
+  linkUrl.setCustomValidity('');
+  if (autosave) renderTaskLinks();
   byId('notes-field').hidden = scheduling;
   byId('remove').hidden = autosave;
   byId('cancel-edit').hidden = autosave;
@@ -342,6 +350,60 @@ function editedNotes() {
   return [...notes.querySelectorAll('.note-editor')].map(field => cleanNotes(field.innerHTML)).filter(Boolean);
 }
 
+function taskLinkUrl(text) {
+  if (!text) return null;
+  try {
+    const url = new URL(/^[a-z][a-z\d+.-]*:/i.test(text) ? text : 'https://' + text);
+    return url.protocol === 'https:' || url.protocol === 'http:' ? url.href : null;
+  } catch {
+    return null;
+  }
+}
+
+function renderTaskLinks() {
+  taskLinks.replaceChildren();
+  editing.links.forEach(({ name, url }, index) => {
+    const href = taskLinkUrl(url);
+    if (!href) return;
+    const row = element('li');
+    const link = element('a', '', name);
+    link.href = href;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    row.append(link, button('×', 'Remove link ' + name, () => {
+      editing.links.splice(index, 1);
+      renderTaskLinks();
+      saveTaskEditor();
+      linkName.focus();
+    }));
+    taskLinks.append(row);
+  });
+}
+
+function addTaskLink() {
+  const url = taskLinkUrl(linkUrl.value.trim());
+  if (!url) {
+    linkUrl.setCustomValidity('Enter a valid HTTP or HTTPS URL.');
+    linkUrl.reportValidity();
+    return;
+  }
+  editing.links.push({ name: linkName.value.trim() || new URL(url).hostname, url });
+  renderTaskLinks();
+  linkName.value = linkUrl.value = '';
+  saveTaskEditor();
+  linkName.focus();
+}
+
+byId('add-task-link').addEventListener('click', addTaskLink);
+linkUrl.addEventListener('input', () => linkUrl.setCustomValidity(''));
+for (const input of [linkName, linkUrl]) {
+  input.addEventListener('keydown', event => {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    addTaskLink();
+  });
+}
+
 function saveTaskEditor() {
   clearTimeout(taskSaveTimer);
   if (!editor.open || !editing?.autosave) return;
@@ -353,6 +415,7 @@ function saveTaskEditor() {
   if (title && title !== item.title) patch.title = title;
   if (description !== (item.description || '')) patch.description = description;
   if (JSON.stringify(entries) !== JSON.stringify(noteEntries(item))) patch.notes = entries;
+  if (JSON.stringify(editing.links) !== JSON.stringify(item.links || [])) patch.links = [...editing.links];
   if (!Object.keys(patch).length) return;
   Object.assign(item, patch);
   commit([{ collection: 'tasks', id: item.id, patch }]);
@@ -421,7 +484,11 @@ for (const toolbar of [descriptionToolbar, notesToolbar]) {
       selection.addRange(noteSelection);
     }
     document.execCommand('styleWithCSS', false, false);
-    document.execCommand(control.dataset.command);
+    if (control.dataset.command === 'dateStamp') {
+      document.execCommand('insertText', false, format(new Date(), { dateStyle: 'short' }));
+    } else {
+      document.execCommand(control.dataset.command);
+    }
     queueTaskSave();
   });
 }
