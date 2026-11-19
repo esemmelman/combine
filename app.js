@@ -518,7 +518,7 @@ function addPlannerRows(table, addDateCells = () => {}) {
     label.scope = 'row';
     if (entry) {
       const name = button(entry.title, null, () => openEditor(entry, collection), 'gantt-name');
-      if (child && entry.date) name.classList.add('scheduled-project-task');
+      if (child && (view === 'hours' ? entry.time : entry.date)) name.classList.add('scheduled-project-task');
       name.title = entry.title;
       draggable(name, entry, collection);
       const actions = element('div', 'gantt-name-actions');
