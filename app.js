@@ -969,12 +969,20 @@ function moveDates(direction) {
   navigate(date, date);
 }
 
+function goToToday() {
+  const today = new Date();
+  navigate(today, today);
+}
+
 byId('days').onclick = () => changeView('days');
 byId('hours').onclick = () => changeView('hours');
 byId('planner-actions').addEventListener('change', event => {
   const action = event.target.value;
   event.target.value = '';
   switch (action) {
+    case 'today':
+      goToToday();
+      break;
     case 'collapse':
     case 'expand': {
       const expanded = action === 'collapse';
@@ -997,10 +1005,7 @@ byId('planner-actions').addEventListener('change', event => {
 });
 byId('previous').onclick = () => moveDates(-1);
 byId('next').onclick = () => moveDates(1);
-byId('today').onclick = () => {
-  const today = new Date();
-  navigate(today, today);
-};
+byId('today').onclick = goToToday;
 byId('date-picker').onchange = event => {
   if (event.target.value) navigate(parseDate(event.target.value));
 };
