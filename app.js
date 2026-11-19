@@ -550,7 +550,8 @@ function renderGantt(start, today) {
   });
   for (const { date, key, weekend } of dates) {
     const weekday = element('th', '', format(date, { weekday: 'narrow' }));
-    const month = element('th', '', pad(date.getMonth() + 1));
+    const showMonth = date.getDay() === 1 || date.getDate() === 1;
+    const month = element('th', '', showMonth ? pad(date.getMonth() + 1) : '');
     const cell = element('th');
     cell.scope = 'col';
     const heading = button(pad(date.getDate()), 'Show times for ' + format(date, { dateStyle: 'full' }), () => {
@@ -639,7 +640,19 @@ function addPlannerRows(table, addDateCells = () => {}) {
     row.classList.toggle('gantt-child', child);
     row.classList.toggle('gantt-project', collection === 'projects');
     row.append(label);
-    plannerDropTarget(label, moveIntoNames, child ? entry : null);
+    if (collection === 'projects') {
+      plannerDropTarget(label, (task, sourceCollection) => {
+        if (sourceCollection !== 'tasks' || !standaloneTasks().includes(task)) {
+          moveIntoNames(task, sourceCollection);
+          return;
+        }
+        collapsedProjects.delete(entry.id);
+        commit([{ collection: 'tasks', id: task.id, patch: { projectId: entry.id } }]);
+        byId('notice').textContent = task.title + ' moved to ' + entry.title;
+      });
+    } else {
+      plannerDropTarget(label, moveIntoNames, child ? entry : null);
+    }
     addDateCells(row, entry, collection);
     return row;
   }
@@ -794,7 +807,7 @@ function renderCalendar(resetScroll = false) {
       schedule.scrollLeft = scrollLeft;
     }
   } else {
-    ganttStart ??= shift(selected, -((selected.getDay() + 6) % 7));
+    ganttStart ??= selected;
     const shortDate = { month: 'short', day: 'numeric' };
     const { chart, dayCount } = renderGantt(ganttStart, today);
     const lastDate = shift(ganttStart, dayCount - 1);
@@ -834,7 +847,10 @@ byId('days').onclick = () => changeView('days');
 byId('hours').onclick = () => changeView('hours');
 byId('previous').onclick = () => moveDates(-1);
 byId('next').onclick = () => moveDates(1);
-byId('today').onclick = () => navigate(new Date());
+byId('today').onclick = () => {
+  const today = new Date();
+  navigate(today, today);
+};
 byId('date-picker').onchange = event => {
   if (event.target.value) navigate(parseDate(event.target.value));
 };

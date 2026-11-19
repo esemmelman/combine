@@ -4,11 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Combine · Planner</title>
-  <link rel="stylesheet" href="style.css?v=39">
+  <link rel="stylesheet" href="style.css?v=40">
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0"></script>
   <script defer src="dayflow-config.js"></script>
-  <script defer src="planner-sync.js?v=4"></script>
-  <script defer src="app.js?v=35"></script>
+  <script defer src="planner-sync.js?v=5"></script>
+  <script defer src="app.js?v=36"></script>
 </head>
 <body>
   <main>
@@ -28,16 +28,16 @@
           <div id="date-navigation">
             <button id="previous" type="button" aria-label="Previous day">←</button>
             <button id="next" type="button" aria-label="Next day">→</button>
+            <div class="views" role="group" aria-label="Calendar view">
+              <button id="days" aria-pressed="true">Gantt</button>
+              <button id="hours" aria-pressed="false">Times</button>
+            </div>
           </div>
           <button id="toggle-standalone-panel" type="button" aria-controls="standalone-panel" aria-expanded="true" aria-label="Hide standalone tasks">‹</button>
         </div>
         <div class="date-control">
           <h1 id="calendar-title"></h1>
           <label><span class="sr-only">Jump to date</span><input id="date-picker" type="date"></label>
-        </div>
-        <div class="views" role="group" aria-label="Calendar view">
-          <button id="days" aria-pressed="true">Gantt</button>
-          <button id="hours" aria-pressed="false">Times</button>
         </div>
         <button id="today">Today</button>
         <div class="account-controls">

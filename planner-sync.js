@@ -4,6 +4,8 @@ const emptyPlanner = () => ({ tasks: [], projects: [] });
 
 function applyPlannerEdits(planner, edits) {
   for (const { collection, id, patch, create, beforeId, afterId } of edits) {
+    if (collection === 'tasks' && patch?.projectId &&
+      !planner.projects.some(project => project.id === patch.projectId)) continue;
     const items = planner[collection];
     const index = items.findIndex(item => item.id === id);
     if (patch === null) {
@@ -19,8 +21,7 @@ function applyPlannerEdits(planner, edits) {
         items.splice(index, 1);
         items.splice(beforeId ? adjustedAnchor : adjustedAnchor + 1, 0, task);
       } else Object.assign(items[index], patch);
-    } else if (create && (collection !== 'tasks' || !patch.projectId ||
-      planner.projects.some(project => project.id === patch.projectId))) {
+    } else if (create) {
       const anchorId = beforeId ?? afterId;
       const anchor = anchorId ? items.findIndex(item => item.id === anchorId && item.projectId === patch.projectId) : -1;
       const position = anchor < 0 ? items.length : anchor + (beforeId ? 0 : 1);
