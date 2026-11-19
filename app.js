@@ -677,6 +677,12 @@ function renderCalendar(resetScroll = false) {
   byId('hours').setAttribute('aria-pressed', String(view === 'hours'));
   byId('previous').setAttribute('aria-label', view === 'days' ? 'Previous week' : 'Previous day');
   byId('next').setAttribute('aria-label', view === 'days' ? 'Next week' : 'Next day');
+  const dateNavigation = byId('date-navigation');
+  const navigationParent = view === 'days' ? calendarBody.parentElement : document.querySelector('.project-navigation');
+  if (dateNavigation.parentElement !== navigationParent) {
+    if (view === 'days') navigationParent.append(dateNavigation);
+    else navigationParent.insertBefore(dateNavigation, byId('toggle-standalone-panel'));
+  }
   const content = view === 'days' ? renderGantt(weekStart, today) : renderSchedule(key);
   calendarBody.replaceChildren(content);
   if (view === 'hours') {
