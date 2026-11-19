@@ -22,6 +22,7 @@ button:disabled { opacity: .55; cursor: wait; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .primary { background: var(--accent); border-color: var(--accent); color: white; font-weight: 600; }
 main { --panel-top: .8rem; display: grid; grid-template-columns: clamp(135px, 15vw, 180px) minmax(0, 1fr); }
+main:has(> #standalone-panel[hidden]) { grid-template-columns: minmax(0, 1fr); }
 .calendar { min-width: 0; padding: var(--panel-top) 0 1rem; background: white; }
 #standalone-panel { min-width: 0; padding: var(--panel-top) .5rem .5rem; border-right: 1px solid var(--calendar-grid); background: #fff; font-size: .88rem; }
 #standalone-tasks:not(:empty) { margin-top: .4rem; }
@@ -29,7 +30,8 @@ main { --panel-top: .8rem; display: grid; grid-template-columns: clamp(135px, 15
 #add-task input, #add-project input, .gantt-row-label input { border-color: #74798a; }
 #add-task input:invalid, #add-project input:invalid, .gantt-row-label input:invalid { background: #e3e5ed; }
 #add-project input { width: 15ch; }
-.project-navigation { display: flex; align-self: flex-start; align-items: flex-start; gap: .15rem; }
+.project-navigation { display: grid; grid-template-columns: repeat(3, auto); align-items: start; gap: .15rem; }
+#toggle-standalone-panel { grid-column: 1; justify-self: center; min-width: 2rem; padding: 0 .5rem; line-height: 1.4; }
 .inline { display: flex; gap: .4rem; }
 .inline input { flex: 1; min-width: 0; }
 h1, h2 { margin: 0 0 .65rem; letter-spacing: -.035em; }
@@ -38,6 +40,7 @@ h2 { font-size: 1.15rem; }
 .calendar > .navigation { margin: 0 .8rem .8rem; }
 .date-control { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem .65rem; }
 .navigation, .views { display: flex; flex-wrap: wrap; gap: .35rem; align-items: center; }
+.navigation { align-items: flex-start; }
 .views { background: #f0eff6; padding: .23rem; border-radius: 10px; }
 .views button { border-color: transparent; background: transparent; }
 .views [aria-pressed="true"] { background: white; color: var(--accent); border-color: var(--line); font-weight: 650; }

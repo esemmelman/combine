@@ -4,11 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Combine · Planner</title>
-  <link rel="stylesheet" href="style.css?v=29">
+  <link rel="stylesheet" href="style.css?v=30">
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0"></script>
   <script defer src="dayflow-config.js"></script>
   <script defer src="planner-sync.js?v=3"></script>
-  <script defer src="app.js?v=24"></script>
+  <script defer src="app.js?v=25"></script>
 </head>
 <body>
   <main>
@@ -27,6 +27,7 @@
           </form>
           <button id="previous" aria-label="Previous dates">←</button>
           <button id="next" aria-label="Next dates">→</button>
+          <button id="toggle-standalone-panel" type="button" aria-controls="standalone-panel" aria-expanded="true" aria-label="Hide standalone tasks">‹</button>
         </div>
         <div class="date-control">
           <h1 id="calendar-title"></h1>

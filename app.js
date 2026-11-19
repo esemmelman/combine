@@ -912,6 +912,15 @@ plannerDropTarget(byId('standalone-panel'), (entry, collection) => {
   commit([{ collection, id: entry.id, patch: { date: '', time: '', inGantt: false } }]);
   byId('notice').textContent = entry.title + ' moved to standalone tasks';
 });
+byId('toggle-standalone-panel').onclick = event => {
+  const toggle = event.currentTarget;
+  const panel = byId('standalone-panel');
+  panel.hidden = !panel.hidden;
+  if (panel.hidden && activeDictation?.formId === 'add-task') activeDictation.cancel();
+  toggle.setAttribute('aria-expanded', String(!panel.hidden));
+  toggle.setAttribute('aria-label', panel.hidden ? 'Show standalone tasks' : 'Hide standalone tasks');
+  toggle.textContent = panel.hidden ? '›' : '‹';
+};
 renderCalendar(true);
 updateBackupStatus();
 if (!client) {
