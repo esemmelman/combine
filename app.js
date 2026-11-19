@@ -982,11 +982,15 @@ byId('planner-actions').addEventListener('change', event => {
   event.target.value = '';
   switch (action) {
     case 'today':
-      ganttDayLimit = 1;
+      ganttDayLimit = ganttDayLimit === 1 ? 0 : 1;
       if (view === 'hours') {
-        selected = new Date();
+        if (ganttDayLimit) selected = new Date();
         changeView('days');
-      } else goToToday();
+      } else if (ganttDayLimit) {
+        goToToday();
+      } else {
+        renderCalendar();
+      }
       break;
     case 'collapse':
     case 'expand': {
