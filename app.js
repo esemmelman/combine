@@ -41,7 +41,7 @@ let ganttWidth;
 let ganttStart;
 let ganttVisibleStart;
 let ganttDateCount;
-let ganttDayLimit = 0;
+let ganttFilter = '';
 let editing;
 let remoteItems = [];
 let remoteUser = null;
@@ -513,7 +513,8 @@ function standaloneTasks() {
 }
 
 function renderStandalonePanel() {
-  byId('standalone-tasks').replaceChildren(...standaloneTasks().filter(task => !task.date && !task.inGantt).map(task => {
+  const tasks = view === 'days' && ganttFilter === 'unassigned' ? [] : standaloneTasks();
+  byId('standalone-tasks').replaceChildren(...tasks.filter(task => !task.date && !task.inGantt).map(task => {
     const name = button(task.title, null, () => openEditor(task, 'tasks'), 'standalone-task');
     draggable(name, task);
     return name;
@@ -630,9 +631,13 @@ function renderGantt(start, today, scrollLeft) {
   // Measure the project and task column before adding dates.
   const dayWidth = parseFloat(getComputedStyle(chart).getPropertyValue('--gantt-day-width'));
   const namesWidth = table.getBoundingClientRect().width;
+  const unassigned = ganttFilter === 'unassigned';
+  const ganttDayLimit = ganttFilter === 'today' ? 1 : ganttFilter === 'five-days' ? 5 : 0;
   const visibleDays = ganttDayLimit || Math.max(1, Math.floor((chart.clientWidth - namesWidth) / dayWidth));
   if (ganttDayLimit) {
     chart.style.maxWidth = namesWidth + visibleDays * dayWidth + 'px';
+  }
+  if (ganttDayLimit || unassigned) {
     namesHeading.style.minWidth = namesHeading.getBoundingClientRect().width + 'px';
   }
   const dates = Array.from({ length: visibleDays + 2 * ganttScrollDays + 1 }, (_, index) => {
@@ -699,12 +704,14 @@ function renderGantt(start, today, scrollLeft) {
     visibleIndex = index;
     ganttVisibleStart = dates[index].date;
     const last = dates[index + visibleDays - 1];
-    if (ganttDayLimit) {
+    if (ganttDayLimit || unassigned) {
       const firstKey = dates[index].key;
       const matchingEntries = new Set();
       const matchingProjects = new Set();
       for (const { entry, collection } of plannerRows) {
-        if (scheduledOn(entry, firstKey, collection) || (entry?.date > firstKey && entry.date <= last.key)) {
+        const matches = unassigned ? collection === 'tasks' && entry && !entry.date :
+          scheduledOn(entry, firstKey, collection) || (entry?.date > firstKey && entry.date <= last.key);
+        if (matches) {
           matchingEntries.add(entry);
           if (collection === 'tasks' && entry.projectId) matchingProjects.add(entry.projectId);
         }
@@ -794,7 +801,8 @@ function addPlannerRows(table, addDateCells = () => {}) {
     row.firstElementChild.append(inlineTaskForm(formId, entry, collection, projectId));
     return row;
   }
-  for (const task of standaloneTasks().filter(task => task.date || task.inGantt)) {
+  const includeAllStandalone = view === 'days' && ganttFilter === 'unassigned';
+  for (const task of standaloneTasks().filter(task => includeAllStandalone || task.date || task.inGantt)) {
     addRow(task, 'tasks');
     addDraft(task, 'tasks', null);
   }
@@ -982,11 +990,11 @@ byId('planner-actions').addEventListener('change', event => {
   event.target.value = '';
   switch (action) {
     case 'today':
-      ganttDayLimit = ganttDayLimit === 1 ? 0 : 1;
+      ganttFilter = ganttFilter === action ? '' : action;
       if (view === 'hours') {
-        if (ganttDayLimit) selected = new Date();
+        if (ganttFilter) selected = new Date();
         changeView('days');
-      } else if (ganttDayLimit) {
+      } else if (ganttFilter) {
         goToToday();
       } else {
         renderCalendar();
@@ -1000,12 +1008,17 @@ byId('planner-actions').addEventListener('change', event => {
     }
     case 'five-days':
       if (view === 'hours') {
-        ganttDayLimit = 5;
+        ganttFilter = action;
         changeView('days');
       } else {
-        ganttDayLimit = ganttDayLimit === 5 ? 0 : 5;
+        ganttFilter = ganttFilter === action ? '' : action;
         renderCalendar();
       }
+      break;
+    case 'unassigned':
+      ganttFilter = ganttFilter === action ? '' : action;
+      if (view === 'hours') changeView('days');
+      else renderCalendar();
       break;
     case 'sort':
       commit([{ collection: 'projects', sortByTitle: true }]);
