@@ -3,6 +3,7 @@
 const byId = id => document.getElementById(id);
 const storageKey = 'combine:planner:v1';
 const dragType = 'application/x-combine-task';
+const clearSchedule = { date: '', time: '', ganttColor: null };
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 const pad = number => String(number).padStart(2, '0');
 const dateKey = date => [date.getFullYear(), pad(date.getMonth() + 1), pad(date.getDate())].join('-');
@@ -357,7 +358,9 @@ editForm.addEventListener('submit', event => {
   if (title.value.trim() !== item.title) patch.title = title.value.trim();
   if (JSON.stringify(safeNotes) !== JSON.stringify(noteEntries(item))) patch.notes = safeNotes;
   const clock = date.value ? time.value : '';
-  if (date.value !== (item.date || '') || clock !== (item.time || '')) Object.assign(patch, { date: date.value, time: clock });
+  if (date.value !== (item.date || '') || clock !== (item.time || '')) {
+    Object.assign(patch, date.value ? { date: date.value, time: clock } : clearSchedule);
+  }
   editor.close();
   if (Object.keys(patch).length) commit([{ collection, id: item.id, patch }]);
   if (patch.date) navigate(parseDate(patch.date));
@@ -376,7 +379,7 @@ byId('remove').addEventListener('click', () => {
 byId('unschedule').addEventListener('click', () => {
   const { item, collection } = editing;
   editor.close();
-  commit([{ collection, id: item.id, patch: { date: '', time: '' } }]);
+  commit([{ collection, id: item.id, patch: clearSchedule }]);
 });
 
 byId('toggle-project-tasks').addEventListener('click', () => {
@@ -423,7 +426,7 @@ function dropTarget(item, date, time) {
 function moveIntoNames(entry, collection) {
   const standalone = collection === 'tasks' && standaloneTasks().includes(entry);
   if (!entry.date && (!standalone || entry.inGantt)) return;
-  const patch = { date: '', time: '' };
+  const patch = { ...clearSchedule };
   if (standalone) patch.inGantt = true;
   commit([{ collection, id: entry.id, patch }]);
   byId('notice').textContent = entry.title + ' moved to column A';
@@ -454,6 +457,39 @@ function renderStandalonePanel() {
     draggable(name, task);
     return name;
   }));
+}
+
+function openGanttMarkMenu(event, entry, collection) {
+  event.preventDefault();
+  const mark = event.currentTarget;
+  const chart = mark.closest('.gantt-scroll');
+  chart.querySelector('.gantt-mark-menu')?.remove();
+  const menu = element('div', 'gantt-mark-menu');
+  menu.setAttribute('popover', 'auto');
+  menu.setAttribute('role', 'group');
+  menu.setAttribute('aria-label', 'Gantt square color');
+  for (const label of ['Red', 'Green', 'Clear']) {
+    menu.append(button(label, null, () => {
+      const clear = label === 'Clear';
+      const patch = clear ? { ...clearSchedule } : { ganttColor: label.toLowerCase() };
+      if (clear && collection === 'tasks' && standaloneTasks().includes(entry)) patch.inGantt = true;
+      menu.hidePopover();
+      commit([{ collection, id: entry.id, patch }]);
+      const focusId = clear ? 'gantt-name-' + collection + '-' + entry.id : mark.id;
+      byId(focusId)?.focus({ preventScroll: true });
+    }));
+  }
+  menu.addEventListener('toggle', event => {
+    if (event.newState === 'closed') menu.remove();
+  });
+  chart.append(menu);
+  mark.focus({ preventScroll: true });
+  menu.showPopover();
+  const { width, height } = menu.getBoundingClientRect();
+  const bounds = document.documentElement;
+  menu.style.left = Math.max(0, Math.min(event.clientX, bounds.clientWidth - width)) + 'px';
+  menu.style.top = Math.max(0, Math.min(event.clientY, bounds.clientHeight - height)) + 'px';
+  menu.firstElementChild.focus({ preventScroll: true });
 }
 
 function renderGantt(start, today) {
@@ -517,7 +553,11 @@ function renderGantt(start, today) {
       const cell = row.insertCell();
       cell.classList.toggle('weekend', weekend);
       if (entry?.date === key) {
-        const mark = button('', entry.title + ', scheduled ' + key, () => openEditor(entry, collection), 'gantt-mark');
+        const color = entry.ganttColor === 'green' ? 'green' : 'red';
+        const mark = button('', entry.title + ', scheduled ' + key + ', ' + color, () => openEditor(entry, collection), 'gantt-mark');
+        mark.id = 'gantt-mark-' + collection + '-' + entry.id;
+        mark.classList.toggle('green', color === 'green');
+        mark.addEventListener('contextmenu', event => openGanttMarkMenu(event, entry, collection));
         draggable(mark, entry, collection);
         cell.append(mark);
       }
@@ -543,7 +583,10 @@ function addPlannerRows(table, addDateCells = () => {}) {
     label.scope = 'row';
     if (entry) {
       const name = button(entry.title, null, () => openEditor(entry, collection), 'gantt-name');
-      if (child && (entry.date || entry.time)) name.classList.add('scheduled-project-task');
+      name.id = 'gantt-name-' + collection + '-' + entry.id;
+      if ((collection === 'tasks' || entry.ganttColor) && (entry.date || entry.time)) {
+        name.classList.add(entry.ganttColor === 'green' ? 'green-gantt-name' : 'red-gantt-name');
+      }
       name.title = entry.title;
       draggable(name, entry, collection);
       const actions = element('div', 'gantt-name-actions');
@@ -960,7 +1003,7 @@ byId('clear-import').onclick = () => {
 
 plannerDropTarget(byId('standalone-panel'), (entry, collection) => {
   if (collection !== 'tasks' || !standaloneTasks().includes(entry) || !(entry.date || entry.inGantt)) return;
-  commit([{ collection, id: entry.id, patch: { date: '', time: '', inGantt: false } }]);
+  commit([{ collection, id: entry.id, patch: { ...clearSchedule, inGantt: false } }]);
   byId('notice').textContent = entry.title + ' moved to standalone tasks';
 });
 byId('toggle-standalone-panel').onclick = event => {
