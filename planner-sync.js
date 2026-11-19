@@ -3,7 +3,7 @@
 const emptyPlanner = () => ({ tasks: [], projects: [] });
 
 function applyPlannerEdits(planner, edits) {
-  for (const { collection, id, patch, create, beforeId, afterId, sortByTitle } of edits) {
+  for (const { collection, id, patch, create, beforeId, afterId, sortByTitle, addDate, removeDate } of edits) {
     if (collection === 'projects' && sortByTitle) {
       planner.projects.sort((first, second) => first.title.localeCompare(second.title, 'en', { sensitivity: 'base', numeric: true }));
       continue;
@@ -17,7 +17,15 @@ function applyPlannerEdits(planner, edits) {
       if (collection === 'projects') planner.tasks = planner.tasks.filter(task => task.projectId !== id);
     } else if (index >= 0) {
       if (create) continue;
-      if (beforeId || afterId) {
+      if (collection === 'tasks' && (addDate || removeDate)) {
+        const task = items[index];
+        const dates = task.extraDates || [];
+        if (removeDate) task.extraDates = dates.filter(date => date !== removeDate);
+        else if (!task.date) task.date = addDate;
+        else if (addDate < task.date || addDate > (task.endDate > task.date ? task.endDate : task.date)) {
+          task.extraDates = [...new Set([...dates, addDate])].sort();
+        }
+      } else if (beforeId || afterId) {
         const entry = items[index];
         if (collection === 'tasks' && !entry.projectId) continue;
         const anchor = items.findIndex(item => item.id === (beforeId ?? afterId) &&

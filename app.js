@@ -4,7 +4,7 @@ const byId = id => document.getElementById(id);
 const storageKey = 'combine:planner:v1';
 const dragType = 'application/x-combine-task';
 const ganttScrollDays = 28;
-const clearSchedule = { date: '', endDate: '', time: '', ganttColor: null };
+const clearSchedule = { date: '', endDate: '', extraDates: [], time: '', ganttColor: null };
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 const pad = number => String(number).padStart(2, '0');
 const dateKey = date => [date.getFullYear(), pad(date.getMonth() + 1), pad(date.getDate())].join('-');
@@ -473,9 +473,10 @@ function dropTarget(item, date, time) {
     selected = parseDate(date);
     const clock = time ?? entry.time ?? '';
     const patch = { date, time: clock };
-    if (collection === 'tasks' && entry.date && entry.endDate >= entry.date) {
-      const span = (Date.parse(entry.endDate) - Date.parse(entry.date)) / 86400000;
-      patch.endDate = dateKey(shift(selected, span));
+    if (collection === 'tasks' && entry.date) {
+      const moveDate = key => dateKey(shift(selected, (Date.parse(key) - Date.parse(entry.date)) / 86400000));
+      if (entry.endDate >= entry.date) patch.endDate = moveDate(entry.endDate);
+      if (entry.extraDates?.length) patch.extraDates = entry.extraDates.map(moveDate);
     }
     commit([{ collection, id: entry.id, patch }]);
     byId('notice').textContent = entry.title + ' scheduled for ' + date + (clock ? ' at ' + timeLabel(minutesOf(clock)) : '');
@@ -499,9 +500,11 @@ function plannerEvent({ entry, collection, time }) {
   return item;
 }
 
-function scheduledOn(entry, date, collection) {
-  return entry?.date && entry.date <= date &&
-    (entry.date === date || (collection === 'tasks' && entry.endDate >= date));
+function scheduledBetween(entry, firstDate, lastDate, collection) {
+  if (!entry?.date) return false;
+  const endDate = collection === 'tasks' && entry.endDate > entry.date ? entry.endDate : entry.date;
+  return (entry.date <= lastDate && endDate >= firstDate) ||
+    (collection === 'tasks' && entry.extraDates?.some(date => date >= firstDate && date <= lastDate));
 }
 
 function filterPlannerRows(rows, firstDate, lastDate) {
@@ -509,7 +512,7 @@ function filterPlannerRows(rows, firstDate, lastDate) {
   const matchingProjects = new Set();
   for (const { entry, collection } of rows) {
     const matches = plannerFilter === 'unassigned' ? collection === 'tasks' && entry && !entry.date :
-      scheduledOn(entry, firstDate, collection) || (entry?.date > firstDate && entry.date <= lastDate);
+      scheduledBetween(entry, firstDate, lastDate, collection);
     if (matches) {
       matchingEntries.add(entry);
       if (collection === 'tasks' && entry.projectId) matchingProjects.add(entry.projectId);
@@ -525,7 +528,7 @@ function filterPlannerRows(rows, firstDate, lastDate) {
 
 function scheduledEntries(date) {
   return ['tasks', 'projects'].flatMap(collection => state[collection]
-    .filter(entry => scheduledOn(entry, date, collection))
+    .filter(entry => scheduledBetween(entry, date, date, collection))
     .map(entry => ({ entry, collection, time: entry.date === date ? entry.time || '' : '' })))
     .sort((first, second) => first.time.localeCompare(second.time));
 }
@@ -544,7 +547,7 @@ function renderStandalonePanel() {
   }));
 }
 
-function openGanttMarkMenu(event, entry, collection) {
+function openGanttMarkMenu(event, entry, collection, date) {
   event.preventDefault();
   const mark = event.currentTarget;
   const chart = mark.closest('.gantt-scroll');
@@ -562,6 +565,15 @@ function openGanttMarkMenu(event, entry, collection) {
       commit([{ collection, id: entry.id, patch }]);
       const focusId = clear ? 'gantt-name-' + collection + '-' + entry.id : mark.id;
       byId(focusId)?.focus({ preventScroll: true });
+    }));
+  }
+  if (collection === 'tasks' && entry.extraDates?.includes(date) &&
+      (date < entry.date || date > (entry.endDate > entry.date ? entry.endDate : entry.date))) {
+    menu.append(button('Remove this date', null, () => {
+      menu.hidePopover();
+      commit([{ collection, id: entry.id, removeDate: date }]);
+      byId('gantt-name-' + collection + '-' + entry.id)?.focus({ preventScroll: true });
+      byId('notice').textContent = date + ' removed from ' + entry.title;
     }));
   }
   menu.addEventListener('toggle', event => {
@@ -592,7 +604,7 @@ function addGanttResizeHandle(cell, dates, dayWidth, task) {
     for (let day = Math.min(previewEnd, index) + 1; day <= Math.max(previewEnd, index); day++) {
       const dayCell = row.cells[day + 1];
       if (day > endIndex) dayCell.classList.toggle(previewClass, day <= index);
-      else dayCell.classList.toggle('gantt-trim-preview', day > index);
+      else dayCell.classList.toggle('gantt-trim-preview', day > index && !task.extraDates?.includes(dates[day].key));
     }
     previewEnd = index;
   }
@@ -702,18 +714,25 @@ function renderGantt(start, today, scrollLeft) {
     for (const { key, weekend } of dates) {
       const cell = row.insertCell();
       cell.classList.toggle('weekend', weekend);
-      if (scheduledOn(entry, key, collection)) {
+      if (scheduledBetween(entry, key, key, collection)) {
         const color = entry.ganttColor === 'green' ? 'green' : 'red';
         const mark = button('', entry.title + ', scheduled ' + key + ', ' + color, () => openEditor(entry, collection), 'gantt-mark');
         mark.id = 'gantt-mark-' + collection + '-' + entry.id;
         if (key !== entry.date) mark.id += '-' + key;
         mark.classList.toggle('green', color === 'green');
-        mark.addEventListener('contextmenu', event => openGanttMarkMenu(event, entry, collection));
+        mark.addEventListener('contextmenu', event => openGanttMarkMenu(event, entry, collection, key));
         draggable(mark, entry, collection);
         cell.append(mark);
         if (collection === 'tasks' && key === (entry.endDate > entry.date ? entry.endDate : entry.date)) {
           addGanttResizeHandle(cell, dates, dayWidth, entry);
         }
+      } else if (entry && collection === 'tasks') {
+        cell.classList.add('gantt-add-date');
+        cell.title = 'Add ' + key + ' to ' + entry.title;
+        cell.addEventListener('click', () => {
+          commit([{ collection, id: entry.id, addDate: key }]);
+          byId('notice').textContent = key + ' added to ' + entry.title;
+        });
       }
       dropTarget(cell, key, null);
     }
