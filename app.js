@@ -136,6 +136,10 @@ function startTaskDictation() {
       (focused === input || focused === document.body)) listenForName('add-task');
 }
 
+function capitalizeDictation(text, language) {
+  return text.replace(/\p{L}/u, letter => letter.toLocaleUpperCase(language || undefined));
+}
+
 function listenForName(formId) {
   const recognition = new SpeechRecognition();
   const status = byId('dictation-status');
@@ -191,9 +195,8 @@ function listenForName(formId) {
     if (activeDictation !== session) return;
     const field = byId(formId)?.elements.title;
     if (!field || field.value !== transcript) return;
-    const text = Array.from(event.results, result => result[0].transcript.trim()).join(' ').trim()
-      .replace(/\p{L}/u, letter => letter.toLocaleUpperCase(recognition.lang || undefined))
-      .slice(0, field.maxLength);
+    const recognized = Array.from(event.results, result => result[0].transcript.trim()).join(' ').trim();
+    const text = capitalizeDictation(recognized, recognition.lang).slice(0, field.maxLength);
     if (text === transcript) return;
     transcript = text;
     field.value = text;
@@ -427,7 +430,10 @@ function queueTaskSave() {
   taskSaveTimer = setTimeout(saveTaskEditor, 300);
 }
 
-editForm.addEventListener('input', queueTaskSave);
+editForm.addEventListener('input', event => {
+  if (activeDictation?.field === event.target) activeDictation.cancel();
+  queueTaskSave();
+});
 editor.addEventListener('cancel', saveTaskEditor);
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) saveTaskEditor();
@@ -436,6 +442,75 @@ window.addEventListener('pagehide', saveTaskEditor);
 byId('done-task').addEventListener('click', () => {
   saveTaskEditor();
   editor.close();
+});
+
+function dictationButton(field, label) {
+  const control = button('🎙️', label, () => {
+    const listeningHere = activeDictation?.field === field;
+    activeDictation?.cancel();
+    if (!listeningHere) listenForRichText(field, control);
+  }, 'dictate-rich-text');
+  control.title = label;
+  control.disabled = !SpeechRecognition;
+  control.setAttribute('aria-pressed', 'false');
+  return control;
+}
+
+function listenForRichText(field, control) {
+  const recognition = new SpeechRecognition();
+  const status = byId('editor-dictation-status');
+  const selection = document.getSelection();
+  const currentRange = selection.rangeCount ? selection.getRangeAt(0) : null;
+  const range = currentRange && field.contains(currentRange.commonAncestorContainer) ? currentRange.cloneRange() :
+    noteSelection && field.contains(noteSelection.commonAncestorContainer) ? noteSelection.cloneRange() : null;
+  const session = {
+    field,
+    cancel() {
+      finish();
+      recognition.abort();
+    }
+  };
+  function finish(message = '') {
+    if (activeDictation !== session) return;
+    activeDictation = undefined;
+    control.setAttribute('aria-pressed', 'false');
+    status.textContent = message;
+  }
+  activeDictation = session;
+  recognition.lang = document.documentElement.lang;
+  recognition.onresult = event => {
+    if (activeDictation !== session || !editor.open || !field.isConnected) return;
+    const text = Array.from(event.results, result => result[0].transcript.trim()).join(' ').trim();
+    finish();
+    if (!text) return;
+    field.focus();
+    const hasCaret = range && field.contains(range.commonAncestorContainer);
+    const insertion = hasCaret ? range : document.createRange();
+    if (!hasCaret) {
+      insertion.selectNodeContents(field);
+      insertion.collapse(false);
+    }
+    selection.removeAllRanges();
+    selection.addRange(insertion);
+    const prefix = !hasCaret && field.textContent && !/\s$/.test(field.textContent) ? ' ' : '';
+    document.execCommand('insertText', false, prefix + capitalizeDictation(text, recognition.lang));
+    queueTaskSave();
+  };
+  recognition.onerror = event => finish(event.error === 'no-speech' ? '' : 'Dictation failed. Check microphone access or try again.');
+  recognition.onend = () => finish();
+  control.setAttribute('aria-pressed', 'true');
+  status.textContent = 'Listening… Click the microphone again to cancel.';
+  try {
+    recognition.start();
+  } catch {
+    finish('Dictation could not start. Try again.');
+  }
+}
+
+editor.addEventListener('close', () => {
+  if (editor.open) return;
+  if (activeDictation?.field) activeDictation.cancel();
+  byId('editor-dictation-status').textContent = '';
 });
 
 function addNoteEditor(html = '') {
@@ -447,11 +522,12 @@ function addNoteEditor(html = '') {
   field.setAttribute('aria-label', 'Note');
   field.innerHTML = html;
   entry.append(field, button('Remove note', null, () => {
+    if (activeDictation?.field === field) activeDictation.cancel();
     entry.remove();
     noteSelection = null;
     (notes.querySelector('.note-editor') || addNoteEditor()).focus();
     queueTaskSave();
-  }));
+  }), dictationButton(field, 'Dictate note'));
   notes.append(entry);
   return field;
 }
@@ -468,7 +544,8 @@ document.addEventListener('selectionchange', () => {
     noteSelection = selection.getRangeAt(0).cloneRange();
   }
 });
-descriptionToolbar.append(...[...notesToolbar.children].map(control => control.cloneNode(true)));
+descriptionToolbar.append(...[...notesToolbar.children].map(control => control.cloneNode(true)),
+  dictationButton(taskDescription, 'Dictate description'));
 for (const toolbar of [descriptionToolbar, notesToolbar]) {
   toolbar.addEventListener('mousedown', event => event.preventDefault());
   toolbar.addEventListener('click', event => {

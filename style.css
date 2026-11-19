@@ -147,6 +147,8 @@ dialog p { color: var(--muted); }
 #task-links button { padding: .1rem .4rem; }
 #notes { display: grid; gap: .6rem; }
 .note-entry > button { margin-top: .2rem; padding: .2rem .45rem; font-size: .84rem; }
+.note-entry > .dictate-rich-text { margin-inline-start: .35rem; }
+.dictate-rich-text[aria-pressed="true"] { background: var(--planner); border-color: var(--accent); }
 .note-editor { border: 1px solid var(--line); border-radius: 8px; padding: .55rem .7rem; min-height: clamp(10rem, 30dvh, 16rem); overflow-wrap: anywhere; }
 #add-note { margin-top: .6rem; }
 dialog { max-height: calc(100% - 2rem); }
