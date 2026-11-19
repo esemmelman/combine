@@ -85,7 +85,7 @@ h2 { font-size: 1.15rem; }
 .gantt-insert:hover { background: #e3e5ed; }
 .gantt-date { width: 100%; padding: 0; font-weight: 650; }
 .gantt-date:hover { text-decoration: underline; }
-.gantt-toggle { position: absolute; left: .2rem; top: 0; bottom: 0; width: 1.45rem; padding: 0; }
+.gantt-toggle { position: absolute; left: .2rem; top: 0; bottom: 0; width: 1.45rem; padding: 0 0 .3rem; line-height: 1; }
 .gantt-mark { position: absolute; inset: 0; width: 100%; background: #e41f26; }
 .gantt-mark.green { background: #208044; }
 .gantt-mark-menu { position: fixed; inset: auto; margin: 0; padding: .25rem; border: 1px solid var(--line); border-radius: 8px; background: white; box-shadow: 0 4px 12px #20263726; }
