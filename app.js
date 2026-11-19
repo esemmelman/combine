@@ -41,7 +41,7 @@ let ganttWidth;
 let ganttStart;
 let ganttVisibleStart;
 let ganttDateCount;
-let ganttFiveDays = false;
+let ganttDayLimit = 0;
 let editing;
 let remoteItems = [];
 let remoteUser = null;
@@ -630,8 +630,8 @@ function renderGantt(start, today, scrollLeft) {
   // Measure the project and task column before adding dates.
   const dayWidth = parseFloat(getComputedStyle(chart).getPropertyValue('--gantt-day-width'));
   const namesWidth = table.getBoundingClientRect().width;
-  const visibleDays = ganttFiveDays ? 5 : Math.max(1, Math.floor((chart.clientWidth - namesWidth) / dayWidth));
-  if (ganttFiveDays) {
+  const visibleDays = ganttDayLimit || Math.max(1, Math.floor((chart.clientWidth - namesWidth) / dayWidth));
+  if (ganttDayLimit) {
     chart.style.maxWidth = namesWidth + visibleDays * dayWidth + 'px';
     namesHeading.style.minWidth = namesHeading.getBoundingClientRect().width + 'px';
   }
@@ -699,7 +699,7 @@ function renderGantt(start, today, scrollLeft) {
     visibleIndex = index;
     ganttVisibleStart = dates[index].date;
     const last = dates[index + visibleDays - 1];
-    if (ganttFiveDays) {
+    if (ganttDayLimit) {
       const firstKey = dates[index].key;
       const matchingEntries = new Set();
       const matchingProjects = new Set();
@@ -716,8 +716,9 @@ function renderGantt(start, today, scrollLeft) {
         row.classList.toggle('gantt-outside-range', !isVisible);
       }
     }
-    byId('calendar-title').textContent = format(ganttVisibleStart, shortDate) + ' – ' +
-      format(last.date, { ...shortDate, year: 'numeric' });
+    const lastLabel = format(last.date, { ...shortDate, year: 'numeric' });
+    byId('calendar-title').textContent = visibleDays === 1 ? lastLabel :
+      format(ganttVisibleStart, shortDate) + ' – ' + lastLabel;
   }
   chart.addEventListener('scroll', updateVisibleDates);
   updateVisibleDates();
@@ -981,7 +982,11 @@ byId('planner-actions').addEventListener('change', event => {
   event.target.value = '';
   switch (action) {
     case 'today':
-      goToToday();
+      ganttDayLimit = 1;
+      if (view === 'hours') {
+        selected = new Date();
+        changeView('days');
+      } else goToToday();
       break;
     case 'collapse':
     case 'expand': {
@@ -991,10 +996,10 @@ byId('planner-actions').addEventListener('change', event => {
     }
     case 'five-days':
       if (view === 'hours') {
-        ganttFiveDays = true;
+        ganttDayLimit = 5;
         changeView('days');
       } else {
-        ganttFiveDays = !ganttFiveDays;
+        ganttDayLimit = ganttDayLimit === 5 ? 0 : 5;
         renderCalendar();
       }
       break;
