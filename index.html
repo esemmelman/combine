@@ -4,16 +4,15 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Combine · Planner</title>
-  <link rel="stylesheet" href="style.css?v=26">
+  <link rel="stylesheet" href="style.css?v=27">
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0"></script>
   <script defer src="dayflow-config.js"></script>
   <script defer src="planner-sync.js?v=3"></script>
-  <script defer src="app.js?v=22"></script>
+  <script defer src="app.js?v=23"></script>
 </head>
 <body>
   <header class="top">
     <a class="brand" href="./"><span aria-hidden="true">◫</span> Combine</a>
-    <h1 id="calendar-title"></h1>
     <div class="account-controls">
       <span id="sync-status" role="status">On this device</span>
       <button id="account-settings" type="button">Account</button>
@@ -37,7 +36,10 @@
           <button id="previous" aria-label="Previous dates">←</button>
           <button id="next" aria-label="Next dates">→</button>
         </div>
-        <label class="date-control"><span class="sr-only">Jump to date</span><input id="date-picker" type="date"></label>
+        <div class="date-control">
+          <h1 id="calendar-title"></h1>
+          <label><span class="sr-only">Jump to date</span><input id="date-picker" type="date"></label>
+        </div>
         <div class="views" role="group" aria-label="Calendar view">
           <button id="days" aria-pressed="false">Gantt</button>
           <button id="hours" aria-pressed="true">Times</button>

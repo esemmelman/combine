@@ -114,6 +114,13 @@ function wireAdd(form, action) {
   });
 }
 
+function startTaskDictation() {
+  const input = byId('add-task').elements.title;
+  const focused = document.activeElement;
+  if (SpeechRecognition && !activeDictation && !input.value &&
+      (focused === input || focused === document.body)) listenForName('add-task');
+}
+
 function listenForName(formId) {
   const recognition = new SpeechRecognition();
   const status = byId('dictation-status');
@@ -809,7 +816,10 @@ function updateAccount(session) {
   loadDayFlow();
 }
 
-client?.auth.onAuthStateChange((_event, session) => setTimeout(() => updateAccount(session), 0));
+client?.auth.onAuthStateChange((event, session) => setTimeout(() => {
+  updateAccount(session);
+  if (event === 'INITIAL_SESSION') startTaskDictation();
+}, 0));
 connectForm.onsubmit = async event => {
   event.preventDefault();
   const { email, password } = connectForm.elements;
@@ -900,4 +910,7 @@ plannerDropTarget(byId('standalone-panel'), (entry, collection) => {
 });
 renderCalendar(true);
 updateBackupStatus();
-if (!client) updateAccount(null);
+if (!client) {
+  updateAccount(null);
+  startTaskDictation();
+}
