@@ -55,13 +55,14 @@ h2 { font-size: 1.15rem; }
 .gantt .gantt-child .gantt-row-label { padding-left: 2.15rem; }
 .gantt-row-label form { padding: .08rem .3rem .08rem 0; }
 .gantt-row-label input { width: 12ch; padding: .05rem .3rem; font-size: .88rem; line-height: 1.2; }
-.gantt-project .gantt-row-label { font-weight: 700; }
+.gantt-project .gantt-row-label { padding-left: 1.55rem; font-weight: 700; cursor: text; }
 .gantt td { position: relative; width: 52px; min-width: 52px; height: 1.25rem; background: #fafafa; }
 .gantt-name, .gantt-date, .gantt-toggle, .gantt-mark, .gantt-insert { border: 0; border-radius: 0; background: transparent; }
 .gantt-name, .gantt-date { display: block; padding: .04rem .35rem; }
 .gantt-name-actions { display: flex; }
 .gantt-name { max-width: clamp(90px, 27vw, 320px); overflow: hidden; text-align: left; text-overflow: ellipsis; line-height: 1.2; }
 .gantt-insert { flex: 1; min-width: 1.35rem; padding: 0; cursor: text; }
+.gantt-project .gantt-insert { min-width: 3rem; }
 .gantt-insert:hover { background: #e3e5ed; }
 .gantt-date { width: 100%; font-weight: 650; }
 .gantt-date:hover { text-decoration: underline; }

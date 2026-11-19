@@ -522,18 +522,22 @@ function addPlannerRows(table, addDateCells = () => {}) {
       draggable(name, entry, collection);
       const actions = element('div', 'gantt-name-actions');
       const formId = 'insert-task-' + collection + '-' + entry.id;
-      const insert = button('', 'Insert task below ' + entry.title, () => {
-        if (!taskDraftRows.has(formId) || (collection === 'projects' && collapsedProjects.has(entry.id))) {
+      const isProject = collection === 'projects';
+      const insert = button('', (isProject ? 'Add task to ' : 'Insert task below ') + entry.title, () => {
+        if (!taskDraftRows.has(formId) || (isProject && collapsedProjects.has(entry.id))) {
           taskDraftRows.add(formId);
-          if (collection === 'projects') collapsedProjects.delete(entry.id);
+          if (isProject) collapsedProjects.delete(entry.id);
           renderCalendar();
         }
         byId(formId)?.elements.title.focus();
       }, 'gantt-insert');
       insert.id = formId + '-trigger';
-      insert.title = 'Insert task below';
+      insert.title = isProject ? 'Add task to project' : 'Insert task below';
       actions.append(name, insert);
       label.append(actions);
+      if (isProject) label.addEventListener('click', event => {
+        if (event.target === label) insert.click();
+      });
     }
     row.classList.toggle('gantt-child', child);
     row.classList.toggle('gantt-project', collection === 'projects');
