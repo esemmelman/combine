@@ -59,7 +59,7 @@ const descriptionToolbar = byId('description-toolbar');
 const taskLinks = byId('task-links');
 const linkName = byId('task-link-name');
 const linkUrl = byId('task-link-url');
-let taskSaveTimer;
+let editorSaveTimer;
 let noteSelection;
 let activeNote;
 let syncing = false;
@@ -355,12 +355,15 @@ function editedNotes() {
   return [...notes.querySelectorAll('.note-editor')].map(field => cleanNotes(field.innerHTML)).filter(Boolean);
 }
 
-function richEditorChanges(item) {
-  const patch = {};
-  const description = cleanNotes(taskDescription.innerHTML);
+function noteChanges(item) {
   const entries = editedNotes();
+  return JSON.stringify(entries) === JSON.stringify(noteEntries(item)) ? {} : { notes: entries };
+}
+
+function richEditorChanges(item) {
+  const patch = noteChanges(item);
+  const description = cleanNotes(taskDescription.innerHTML);
   if (description !== (item.description || '')) patch.description = description;
-  if (JSON.stringify(entries) !== JSON.stringify(noteEntries(item))) patch.notes = entries;
   if (JSON.stringify(editing.links) !== JSON.stringify(item.links || [])) patch.links = [...editing.links];
   return patch;
 }
@@ -388,7 +391,7 @@ function renderTaskLinks() {
     row.append(link, button('×', 'Remove link ' + name, () => {
       editing.links.splice(index, 1);
       renderTaskLinks();
-      saveTaskEditor();
+      if (editing.autosave) autosaveEditor();
       linkName.focus();
     }));
     taskLinks.append(row);
@@ -405,7 +408,7 @@ function addTaskLink() {
   editing.links.push({ name: linkName.value.trim() || new URL(url).hostname, url });
   renderTaskLinks();
   linkName.value = linkUrl.value = '';
-  saveTaskEditor();
+  if (editing.autosave) autosaveEditor();
   linkName.focus();
 }
 
@@ -419,35 +422,37 @@ for (const input of [linkName, linkUrl]) {
   });
 }
 
-function saveTaskEditor() {
-  clearTimeout(taskSaveTimer);
-  if (!editor.open || !editing?.autosave) return;
-  const { item } = editing;
-  const patch = richEditorChanges(item);
-  const title = editForm.elements.title.value.trim();
-  if (title && title !== item.title) patch.title = title;
+function autosaveEditor() {
+  clearTimeout(editorSaveTimer);
+  if (!editor.open || !editing || editing.scheduling) return;
+  const { item, collection, autosave } = editing;
+  const patch = autosave ? richEditorChanges(item) : noteChanges(item);
+  if (autosave) {
+    const title = editForm.elements.title.value.trim();
+    if (title && title !== item.title) patch.title = title;
+  }
   if (!Object.keys(patch).length) return;
   Object.assign(item, patch);
-  commit([{ collection: 'tasks', id: item.id, patch }]);
+  commit([{ collection, id: item.id, patch }]);
 }
 
-function queueTaskSave() {
-  if (!editing?.autosave) return;
-  clearTimeout(taskSaveTimer);
-  taskSaveTimer = setTimeout(saveTaskEditor, 300);
+function queueEditorSave(field) {
+  if (!editing || editing.scheduling || (!editing.autosave && !notes.contains(field))) return;
+  clearTimeout(editorSaveTimer);
+  editorSaveTimer = setTimeout(autosaveEditor, 300);
 }
 
 editForm.addEventListener('input', event => {
   if (activeDictation?.field === event.target) activeDictation.cancel();
-  queueTaskSave();
+  queueEditorSave(event.target);
 });
-editor.addEventListener('cancel', saveTaskEditor);
+editor.addEventListener('cancel', autosaveEditor);
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden) saveTaskEditor();
+  if (document.hidden) autosaveEditor();
 });
-window.addEventListener('pagehide', saveTaskEditor);
+window.addEventListener('pagehide', autosaveEditor);
 byId('done-task').addEventListener('click', () => {
-  saveTaskEditor();
+  autosaveEditor();
   editor.close();
 });
 
@@ -501,7 +506,7 @@ function listenForRichText(field, control) {
     selection.addRange(insertion);
     const prefix = !hasCaret && field.textContent && !/\s$/.test(field.textContent) ? ' ' : '';
     document.execCommand('insertText', false, prefix + capitalizeDictation(text, recognition.lang));
-    queueTaskSave();
+    queueEditorSave(field);
   };
   recognition.onerror = event => finish(event.error === 'no-speech' ? '' : 'Dictation failed. Check microphone access or try again.');
   recognition.onend = () => finish();
@@ -533,7 +538,7 @@ function addNoteEditor(html = '') {
     entry.remove();
     noteSelection = null;
     (notes.querySelector('.note-editor') || addNoteEditor()).focus();
-    queueTaskSave();
+    queueEditorSave(notes);
   }), dictationButton(field, 'Dictate note'));
   notes.append(entry);
   return field;
@@ -573,7 +578,7 @@ for (const toolbar of [descriptionToolbar, notesToolbar]) {
     } else {
       document.execCommand(control.dataset.command);
     }
-    queueTaskSave();
+    queueEditorSave(field);
   });
 }
 for (const container of [taskDescription, notes]) {
@@ -596,7 +601,7 @@ editForm.elements.endDate.addEventListener('input', updateDateConstraints);
 editForm.addEventListener('submit', event => {
   event.preventDefault();
   if (editing.autosave) {
-    saveTaskEditor();
+    autosaveEditor();
     return;
   }
   const { title, date, endDate, time } = editForm.elements;
@@ -633,7 +638,11 @@ byId('unschedule').addEventListener('click', () => {
 });
 
 document.querySelectorAll('[data-close]').forEach(item => {
-  item.addEventListener('click', () => item.closest('dialog').close());
+  item.addEventListener('click', () => {
+    const dialog = item.closest('dialog');
+    if (dialog === editor) autosaveEditor();
+    dialog.close();
+  });
 });
 
 function plannerDropTarget(item, onDrop, reorderTarget) {
@@ -1432,7 +1441,7 @@ function updateAccount(session) {
     remoteRequest++;
     remoteItems = [];
     if (editor.open) {
-      saveTaskEditor();
+      autosaveEditor();
       editor.close();
     }
   }
