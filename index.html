@@ -4,11 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Combine · Planner</title>
-  <link rel="stylesheet" href="style.css?v=62">
+  <link rel="stylesheet" href="style.css?v=63">
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0"></script>
   <script defer src="dayflow-config.js"></script>
   <script defer src="planner-sync.js?v=9"></script>
-  <script defer src="app.js?v=63"></script>
+  <script defer src="app.js?v=64"></script>
 </head>
 <body>
   <div id="notice" class="sr-only" role="status"></div>
@@ -76,7 +76,13 @@
   <dialog id="editor" aria-labelledby="edit-title">
     <div id="editor-dictation-status" class="sr-only" role="status"></div>
     <form id="edit-form">
-      <h2 id="edit-title"></h2>
+      <header class="editor-header">
+        <h2 id="edit-title"></h2>
+        <div class="inline" id="editor-header-actions" hidden>
+          <button type="submit" id="save-edit" class="primary">Save</button>
+          <button type="button" id="close-edit" aria-label="Close" data-close>×</button>
+        </div>
+      </header>
       <div class="editor-content">
         <div>
           <label id="name-field">Name<input name="title" maxlength="180" required></label>
@@ -110,12 +116,9 @@
           <button type="button" id="add-task-link">Add link</button>
         </fieldset>
       </div>
-      <div class="dialog-actions">
+      <div class="dialog-actions" id="editor-footer">
         <button type="button" id="remove" class="danger">Delete</button>
         <button type="button" id="unschedule" hidden>Unschedule</button>
-        <button type="button" id="toggle-project-tasks" hidden>Hide tasks</button>
-        <button type="button" id="cancel-edit" data-close>Cancel</button>
-        <button id="save-edit" class="primary">Save</button>
         <button type="button" id="done-task" class="primary" hidden>Done</button>
       </div>
     </form>

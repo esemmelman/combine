@@ -130,6 +130,10 @@ h2 { font-size: 1.15rem; }
 dialog { width: min(430px, calc(100% - 2rem)); padding: 1.2rem; border-radius: 14px; border: 1px solid var(--line); color: inherit; }
 #editor { width: min(640px, calc(100% - 2rem)); }
 #editor.rich-details { width: min(960px, calc(100% - 2rem)); }
+.editor-header { display: flex; align-items: center; justify-content: space-between; gap: .45rem; }
+.editor-header h2 { margin: 0; }
+#editor-header-actions { margin-inline-start: auto; margin-bottom: .65rem; }
+#close-edit { font-size: 1.2rem; line-height: 1; }
 .rich-details .editor-content { display: grid; grid-template-columns: minmax(0, 500px) minmax(220px, 1fr); gap: 1.25rem; align-items: start; }
 dialog::backdrop { background: #1c193d66; }
 dialog label { display: grid; gap: .25rem; margin-bottom: .65rem; }

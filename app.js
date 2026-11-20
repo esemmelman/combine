@@ -289,16 +289,17 @@ function openEditor(item, collection, scheduling = false) {
   const isTask = collection === 'tasks';
   const details = !scheduling;
   const autosave = isTask && details;
-  editing = { item: { ...item }, collection, autosave, links: [...(item.links || [])] };
+  editing = { item: { ...item }, collection, autosave, scheduling, links: [...(item.links || [])] };
   const { title, date, endDate, time } = editForm.elements;
   const heading = byId('edit-title');
-  heading.textContent = !isTask ? 'Project properties' : scheduling ? 'Task scheduling' : 'Task properties';
-  heading.classList.toggle('sr-only', autosave);
+  const itemType = isTask ? 'Task' : 'Project';
+  heading.textContent = itemType + (scheduling ? ' scheduling' : ' properties');
+  heading.classList.toggle('sr-only', details);
   editor.classList.toggle('rich-details', details);
-  byId('date-field').hidden = autosave;
-  byId('time-field').hidden = autosave;
+  byId('date-field').hidden = details;
+  byId('time-field').hidden = details;
   byId('date-label').textContent = isTask ? 'Start date' : 'Date';
-  byId('end-date-field').hidden = !scheduling;
+  byId('end-date-field').hidden = !scheduling || !isTask;
   byId('description-field').hidden = !details;
   taskDescription.innerHTML = details ? cleanNotes(item.description || '') : '';
   byId('task-links-field').hidden = !details;
@@ -306,9 +307,9 @@ function openEditor(item, collection, scheduling = false) {
   linkUrl.setCustomValidity('');
   if (details) renderTaskLinks();
   byId('notes-field').hidden = scheduling;
-  byId('remove').hidden = autosave;
-  byId('cancel-edit').hidden = autosave;
-  byId('save-edit').hidden = autosave;
+  byId('editor-header-actions').hidden = autosave;
+  byId('editor-footer').hidden = details && !autosave;
+  byId('remove').hidden = details;
   byId('done-task').hidden = !autosave;
   title.value = item.title;
   date.value = item.date || '';
@@ -320,10 +321,7 @@ function openEditor(item, collection, scheduling = false) {
   if (!notes.children.length) addNoteEditor();
   activeNote = details ? taskDescription : null;
   noteSelection = null;
-  byId('unschedule').hidden = autosave || !item.date;
-  const toggle = byId('toggle-project-tasks');
-  toggle.hidden = collection !== 'projects';
-  toggle.textContent = collapsedProjects.has(item.id) ? 'Show tasks' : 'Hide tasks';
+  byId('unschedule').hidden = details || !item.date;
   editor.showModal();
   title.focus();
 }
@@ -603,14 +601,16 @@ editForm.addEventListener('submit', event => {
   }
   const { title, date, endDate, time } = editForm.elements;
   if (!title.value.trim()) return;
-  const { item, collection } = editing;
-  const patch = collection === 'projects' ? richEditorChanges(item) : {};
+  const { item, collection, scheduling } = editing;
+  const patch = scheduling ? {} : richEditorChanges(item);
   if (title.value.trim() !== item.title) patch.title = title.value.trim();
-  const clock = date.value ? time.value : '';
-  if (date.value !== (item.date || '') || clock !== (item.time || '')) {
-    Object.assign(patch, date.value ? { date: date.value, time: clock } : clearSchedule);
+  if (scheduling) {
+    const clock = date.value ? time.value : '';
+    if (date.value !== (item.date || '') || clock !== (item.time || '')) {
+      Object.assign(patch, date.value ? { date: date.value, time: clock } : clearSchedule);
+    }
+    if (collection === 'tasks' && endDate.value !== (item.endDate || '')) patch.endDate = endDate.value;
   }
-  if (collection === 'tasks' && endDate.value !== (item.endDate || '')) patch.endDate = endDate.value;
   editor.close();
   if (Object.keys(patch).length) commit([{ collection, id: item.id, patch }]);
   if (patch.date) navigate(parseDate(patch.date));
@@ -630,13 +630,6 @@ byId('unschedule').addEventListener('click', () => {
   const { item, collection } = editing;
   editor.close();
   commit([{ collection, id: item.id, patch: clearSchedule }]);
-});
-
-byId('toggle-project-tasks').addEventListener('click', () => {
-  const { id } = editing.item;
-  editor.close();
-  byId('project-toggle-' + id)?.click();
-  byId('project-toggle-' + id)?.focus();
 });
 
 document.querySelectorAll('[data-close]').forEach(item => {
@@ -714,7 +707,7 @@ function plannerEvent({ entry, collection, time }) {
   const item = button(entry.title, null, () => openEditor(entry, collection), 'event planner');
   const details = [collection === 'projects' ? 'Project' : '', time ? timeLabel(minutesOf(time)) : ''].filter(Boolean);
   if (details.length) item.append(element('small', '', details.join(' · ')));
-  if (collection === 'tasks') item.addEventListener('contextmenu', event => openTaskMenu(event, entry));
+  item.addEventListener('contextmenu', event => openItemMenu(event, entry, collection));
   draggable(item, entry, collection);
   return item;
 }
@@ -761,7 +754,7 @@ function renderStandalonePanel() {
   const tasks = plannerFilter === 'unassigned' ? [] : standaloneTasks();
   byId('standalone-tasks').replaceChildren(...tasks.filter(task => !task.date && !task.inGantt).map(task => {
     const name = button(task.title, null, () => openEditor(task, 'tasks'), 'standalone-task');
-    name.addEventListener('contextmenu', event => openTaskMenu(event, task));
+    name.addEventListener('contextmenu', event => openItemMenu(event, task, 'tasks'));
     draggable(name, task);
     return name;
   }));
@@ -775,16 +768,16 @@ function plannerMenu(label) {
   return menu;
 }
 
-function addTaskSchedulingAction(menu, task) {
+function addSchedulingAction(menu, entry, collection) {
   menu.append(button('Scheduling and deletion…', null, () => {
     menu.hidePopover();
-    openEditor(task, 'tasks', true);
+    openEditor(entry, collection, true);
   }));
 }
 
-function openTaskMenu(event, task) {
-  const menu = plannerMenu('Task actions');
-  addTaskSchedulingAction(menu, task);
+function openItemMenu(event, entry, collection) {
+  const menu = plannerMenu(collection === 'tasks' ? 'Task actions' : 'Project actions');
+  addSchedulingAction(menu, entry, collection);
   showPlannerMenu(event, menu);
 }
 
@@ -817,7 +810,7 @@ function openGanttMarkMenu(event, entry, collection, date) {
       byId('notice').textContent = date + ' removed from ' + entry.title;
     }));
   }
-  if (collection === 'tasks') addTaskSchedulingAction(menu, entry);
+  addSchedulingAction(menu, entry, collection);
   showPlannerMenu(event, menu);
 }
 
@@ -1068,7 +1061,7 @@ function addPlannerRows(table, addDateCells, projectId = '') {
         name.classList.add(ganttColor(entry) + '-gantt-name');
       }
       name.title = entry.title;
-      if (collection === 'tasks') name.addEventListener('contextmenu', event => openTaskMenu(event, entry));
+      name.addEventListener('contextmenu', event => openItemMenu(event, entry, collection));
       draggable(name, entry, collection, child || collection === 'projects');
       const actions = element('div', 'gantt-name-actions');
       const formId = 'insert-task-' + collection + '-' + entry.id;
