@@ -142,8 +142,10 @@ dialog p { color: var(--muted); }
 .dialog-actions { display: flex; flex-wrap: wrap; gap: .45rem; justify-content: flex-end; margin-top: 1rem; }
 .dialog-actions .danger { margin-right: auto; color: #9a2445; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-.account-controls { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: .35rem; margin-inline-start: auto; }
-#sync-status { align-self: center; font-size: .82rem; color: var(--muted); }
+.top-controls { display: flex; align-items: flex-end; flex-wrap: wrap-reverse; gap: .35rem .6rem; max-width: 100%; }
+.account-controls { display: flex; align-items: center; justify-content: flex-end; gap: .25rem; margin-inline-start: auto; min-width: 0; }
+.account-controls button { padding: .3rem .45rem; font-size: .875rem; min-height: 2rem; }
+#sync-status { font-size: .75rem; color: var(--muted); }
 #notes-field, #description-field { padding: 0; border: 0; margin: .8rem 0 0; min-width: 0; }
 #notes-label { margin-bottom: .3rem; }
 #notes-toolbar, #description-toolbar { flex-wrap: wrap; margin-bottom: .35rem; }
@@ -163,6 +165,8 @@ dialog p { color: var(--muted); }
 #add-note { margin-top: .6rem; }
 dialog { max-height: calc(100% - 2rem); }
 @media (max-width: 650px) {
+  .top-controls { width: 100%; }
+  .account-controls { flex-basis: 100%; }
   .rich-details .editor-content { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 540px) {
