@@ -52,6 +52,10 @@ h2 { font-size: 1.15rem; }
 .planner { background: var(--planner); color: #332575; }
 .dayflow { background: var(--dayflow); color: #145747; }
 .gantt-scroll { --gantt-day-width: 26px; max-height: 100%; overflow: scroll auto; }
+.gantt-scroll[data-scale="weeks"] { --gantt-day-width: 64px; }
+.gantt-scroll[data-scale="months"] { --gantt-day-width: 84px; }
+.gantt-scroll[data-scale="weeks"] thead th,
+.gantt-scroll[data-scale="months"] thead th { height: 2rem; }
 .gantt { width: 100%; border-collapse: collapse; color: #171717; }
 .gantt-scroll > .gantt { width: max-content; }
 .gantt th, .gantt td { border: 1px solid var(--calendar-grid); padding: 0; }

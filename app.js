@@ -37,10 +37,11 @@ const device = readStorage(storageKey, { ...emptyPlanner(), backup: [] });
 let state = device;
 let selected = new Date();
 let view = 'days';
+const ganttScale = byId('gantt-scale');
 let ganttWidth;
 let ganttStart;
 let ganttVisibleStart;
-let ganttDateCount;
+let ganttColumnCount;
 let plannerFilter = '';
 let selectedProjectId = '';
 let editing;
@@ -891,18 +892,40 @@ function addGanttResizeHandle(cell, dates, dayWidth, task) {
   cell.append(handle);
 }
 
+function ganttPeriodStart(date, scale) {
+  if (scale === 'months') return new Date(date.getFullYear(), date.getMonth(), 1, 12);
+  if (scale === 'weeks') return shift(date, -((date.getDay() + 6) % 7));
+  return date;
+}
+
+function shiftGanttPeriods(date, count, scale) {
+  if (scale === 'months') return new Date(date.getFullYear(), date.getMonth() + count, 1, 12);
+  return shift(date, count * (scale === 'weeks' ? 7 : 1));
+}
+
+function setGanttScale(scale, date) {
+  ganttScale.value = scale;
+  if (plannerFilter === 'today' || plannerFilter === 'five-days') plannerFilter = '';
+  view = 'days';
+  navigate(date, date);
+}
+
 function renderGantt(start, today, scrollLeft) {
+  const scale = ganttScale.value;
+  const daily = scale === 'days';
+  const shortDate = { month: 'short', day: 'numeric' };
   const chart = element('div', 'gantt-scroll');
+  chart.dataset.scale = scale;
   chart.tabIndex = 0;
   chart.setAttribute('role', 'region');
   chart.setAttribute('aria-label', 'Gantt chart');
   const table = element('table', 'gantt');
   const header = table.createTHead();
-  const weekdays = header.insertRow();
-  const monthsRow = header.insertRow();
-  const datesRow = header.insertRow();
+  const firstRow = header.insertRow();
+  const monthsRow = daily ? header.insertRow() : null;
+  const datesRow = daily ? header.insertRow() : firstRow;
   const namesHeading = plannerNamesHeading();
-  namesHeading.rowSpan = 3;
+  namesHeading.rowSpan = daily ? 3 : 1;
   namesHeading.append(byId('toggle-standalone-panel'));
   const projects = [...state.projects].sort((first, second) =>
     first.title.localeCompare(second.title, 'en', { sensitivity: 'base', numeric: true }));
@@ -910,7 +933,7 @@ function renderGantt(start, today, scrollLeft) {
   if (!projects.some(project => project.id === selectedProjectId)) selectedProjectId = '';
   projectFilter.value = selectedProjectId;
   namesHeading.append(projectFilter);
-  weekdays.append(namesHeading);
+  firstRow.append(namesHeading);
   const plannerRows = [];
   addPlannerRows(table, (row, entry, collection, draftFor) => plannerRows.push({ row, entry, collection, draftFor }), selectedProjectId);
   chart.append(table);
@@ -921,66 +944,79 @@ function renderGantt(start, today, scrollLeft) {
   const namesWidth = table.getBoundingClientRect().width;
   const unassigned = plannerFilter === 'unassigned';
   const ganttDayLimit = plannerFilter === 'today' ? 1 : plannerFilter === 'five-days' ? 5 : 0;
-  const visibleDays = ganttDayLimit || Math.max(1, Math.floor((chart.clientWidth - namesWidth) / dayWidth));
+  const visibleColumns = ganttDayLimit || Math.max(1, Math.floor((chart.clientWidth - namesWidth) / dayWidth));
   if (ganttDayLimit) {
-    chart.style.maxWidth = namesWidth + visibleDays * dayWidth + 'px';
+    chart.style.maxWidth = namesWidth + visibleColumns * dayWidth + 'px';
   }
   if (ganttDayLimit || unassigned) {
     namesHeading.style.minWidth = namesHeading.getBoundingClientRect().width + 'px';
   }
-  const dates = Array.from({ length: visibleDays + 2 * ganttScrollDays + 1 }, (_, index) => {
-    const date = shift(start, index - ganttScrollDays);
+  const periodStart = ganttPeriodStart(start, scale);
+  const buffer = daily ? ganttScrollDays : 12;
+  const dates = Array.from({ length: visibleColumns + 2 * buffer + 1 }, (_, index) => {
+    const date = shiftGanttPeriods(periodStart, index - buffer, scale);
+    const end = shift(shiftGanttPeriods(date, 1, scale), -1);
     const weekday = date.getDay();
-    return { date, key: dateKey(date), weekend: weekday === 0 || weekday === 6 };
+    return { date, key: dateKey(date), end, endKey: dateKey(end), weekend: daily && (weekday === 0 || weekday === 6) };
   });
-  for (const { date, key, weekend } of dates) {
-    const weekday = element('th', '', format(date, { weekday: 'narrow' }));
-    const showMonth = date.getDay() === 1 || date.getDate() === 1;
-    const month = element('th', 'gantt-month');
-    if (showMonth) month.append(element('span', '', format(date, { month: 'short' })));
+  for (const { date, key, endKey, weekend } of dates) {
     const cell = element('th', 'gantt-day');
     cell.scope = 'col';
-    const heading = button(pad(date.getDate()), 'Show times for ' + format(date, { dateStyle: 'full' }), () => {
+    const label = daily ? pad(date.getDate()) :
+      format(date, scale === 'weeks' ? shortDate : { month: 'short', year: 'numeric' });
+    const fullDate = format(date, { dateStyle: 'full' });
+    const heading = button(label, daily ? 'Show times for ' + fullDate : 'Show days from ' + fullDate, () => {
+      if (!daily) {
+        setGanttScale('days', date);
+        ganttScale.focus();
+        return;
+      }
       selected = date;
       changeView('hours');
     }, 'gantt-date');
-    if (weekend) {
-      weekday.classList.add('weekend');
-      month.classList.add('weekend');
-      cell.classList.add('weekend');
-    }
-    if (key === today) {
-      weekday.classList.add('current-day');
-      month.classList.add('current-day');
-      cell.classList.add('current-day');
-      heading.setAttribute('aria-current', 'date');
+    const current = key <= today && today <= endKey;
+    cell.classList.toggle('weekend', weekend);
+    cell.classList.toggle('current-day', current);
+    if (current) heading.setAttribute('aria-current', 'date');
+    if (daily) {
+      const weekday = element('th', '', format(date, { weekday: 'narrow' }));
+      const month = element('th', 'gantt-month');
+      if (date.getDay() === 1 || date.getDate() === 1) {
+        month.append(element('span', '', format(date, { month: 'short' })));
+      }
+      for (const headerCell of [weekday, month]) {
+        headerCell.classList.toggle('weekend', weekend);
+        headerCell.classList.toggle('current-day', current);
+        dropTarget(headerCell, key, null);
+      }
+      firstRow.append(weekday);
+      monthsRow.append(month);
+      dropTarget(cell, key, null);
     }
     cell.append(heading);
-    weekdays.append(weekday);
-    monthsRow.append(month);
     datesRow.append(cell);
-    dropTarget(weekday, key, null);
-    dropTarget(month, key, null);
-    dropTarget(cell, key, null);
   }
   for (const { row, entry, collection } of plannerRows) {
-    for (const { key, weekend } of dates) {
+    for (const { key, endKey, weekend } of dates) {
       const cell = row.insertCell();
       cell.classList.toggle('weekend', weekend);
-      if (scheduledBetween(entry, key, key, collection)) {
+      if (scheduledBetween(entry, key, endKey, collection)) {
         const color = ganttColor(entry);
         const status = color === 'yellow' ? 'yellow, partially complete' : color;
-        const mark = button('', entry.title + ', scheduled ' + key + ', ' + status, () => openEditor(entry, collection), 'gantt-mark');
-        mark.id = 'gantt-mark-' + collection + '-' + entry.id;
-        if (key !== entry.date) mark.id += '-' + key;
+        const period = daily ? key : key + ' to ' + endKey;
+        const mark = button('', entry.title + ', scheduled ' + period + ', ' + status, () => openEditor(entry, collection), 'gantt-mark');
+        const firstDate = key <= entry.date && entry.date <= endKey;
+        mark.id = 'gantt-mark-' + collection + '-' + entry.id + (firstDate ? '' : '-' + key);
         mark.classList.add(color);
-        mark.addEventListener('contextmenu', event => openGanttMarkMenu(event, entry, collection, key));
-        draggable(mark, entry, collection);
         cell.append(mark);
-        if (collection === 'tasks' && key === (entry.endDate > entry.date ? entry.endDate : entry.date)) {
-          addGanttResizeHandle(cell, dates, dayWidth, entry);
+        if (daily) {
+          mark.addEventListener('contextmenu', event => openGanttMarkMenu(event, entry, collection, key));
+          draggable(mark, entry, collection);
+          if (collection === 'tasks' && key === (entry.endDate > entry.date ? entry.endDate : entry.date)) {
+            addGanttResizeHandle(cell, dates, dayWidth, entry);
+          }
         }
-      } else if (entry && collection === 'tasks') {
+      } else if (daily && entry && collection === 'tasks') {
         cell.classList.add('gantt-add-date');
         cell.title = 'Add ' + key + ' to ' + entry.title;
         cell.addEventListener('click', () => {
@@ -988,28 +1024,27 @@ function renderGantt(start, today, scrollLeft) {
           byId('notice').textContent = key + ' added to ' + entry.title;
         });
       }
-      dropTarget(cell, key, null);
+      if (daily) dropTarget(cell, key, null);
     }
   }
-  chart.scrollLeft = scrollLeft ?? ganttScrollDays * dayWidth;
-  const shortDate = { month: 'short', day: 'numeric' };
+  chart.scrollLeft = scrollLeft ?? buffer * dayWidth;
   let visibleIndex;
   function updateVisibleDates() {
-    const index = Math.max(0, Math.min(dates.length - visibleDays, Math.round(chart.scrollLeft / dayWidth)));
+    const index = Math.max(0, Math.min(dates.length - visibleColumns, Math.round(chart.scrollLeft / dayWidth)));
     if (index === visibleIndex) return;
     visibleIndex = index;
     ganttVisibleStart = dates[index].date;
-    const last = dates[index + visibleDays - 1];
+    const last = dates[index + visibleColumns - 1];
     if (ganttDayLimit || unassigned) {
-      filterPlannerRows(plannerRows, dates[index].key, last.key);
+      filterPlannerRows(plannerRows, dates[index].key, last.endKey);
     }
-    const lastLabel = format(last.date, { ...shortDate, year: 'numeric' });
-    byId('calendar-title').textContent = visibleDays === 1 ? lastLabel :
+    const lastLabel = format(last.end, { ...shortDate, year: 'numeric' });
+    byId('calendar-title').textContent = daily && visibleColumns === 1 ? lastLabel :
       format(ganttVisibleStart, shortDate) + ' – ' + lastLabel;
   }
   chart.addEventListener('scroll', updateVisibleDates);
   updateVisibleDates();
-  return visibleDays;
+  return visibleColumns;
 }
 
 function plannerNamesHeading() {
@@ -1208,8 +1243,9 @@ function renderCalendar(resetScroll = false) {
   byId('date-picker').value = key;
   byId('days').setAttribute('aria-pressed', String(view === 'days'));
   byId('hours').setAttribute('aria-pressed', String(view === 'hours'));
-  byId('previous').setAttribute('aria-label', view === 'days' ? 'Previous page of dates' : 'Previous day');
-  byId('next').setAttribute('aria-label', view === 'days' ? 'Next page of dates' : 'Next day');
+  const navigationUnit = view === 'days' ? 'page of ' + ganttScale.value : 'day';
+  byId('previous').setAttribute('aria-label', 'Previous ' + navigationUnit);
+  byId('next').setAttribute('aria-label', 'Next ' + navigationUnit);
   const dateNavigation = byId('date-navigation');
   const panelToggle = byId('toggle-standalone-panel');
   const focusedControl = document.activeElement;
@@ -1238,7 +1274,7 @@ function renderCalendar(resetScroll = false) {
   } else {
     const previousScroll = !resetScroll && ganttStart ? scrollLeft : undefined;
     ganttStart ??= selected;
-    ganttDateCount = renderGantt(ganttStart, today, previousScroll);
+    ganttColumnCount = renderGantt(ganttStart, today, previousScroll);
     calendarBody.querySelector('.gantt-scroll').scrollTop = scrollTop;
     ganttWidth = calendarBody.clientWidth;
   }
@@ -1250,6 +1286,7 @@ function renderCalendar(resetScroll = false) {
 function changeView(nextView) {
   if (view === nextView) return;
   view = nextView;
+  if (view === 'days' && (plannerFilter === 'today' || plannerFilter === 'five-days')) ganttScale.value = 'days';
   ganttStart = undefined;
   renderCalendar(true);
   loadDayFlow();
@@ -1267,7 +1304,7 @@ function moveDates(direction) {
     navigate(shift(selected, direction));
     return;
   }
-  const date = shift(ganttVisibleStart, direction * ganttDateCount);
+  const date = shiftGanttPeriods(ganttVisibleStart, direction * ganttColumnCount, ganttScale.value);
   navigate(date, date);
 }
 
@@ -1278,6 +1315,7 @@ function goToToday() {
 
 byId('days').onclick = () => changeView('days');
 byId('hours').onclick = () => changeView('hours');
+ganttScale.addEventListener('change', () => setGanttScale(ganttScale.value, view === 'days' ? ganttVisibleStart : selected));
 projectFilter.addEventListener('change', event => {
   selectedProjectId = event.target.value;
   if (selectedProjectId) plannerFilter = '';
@@ -1291,6 +1329,13 @@ byId('planner-actions').addEventListener('change', event => {
     case 'five-days':
     case 'unassigned':
       plannerFilter = plannerFilter === action ? '' : action;
+      if (view === 'days' && ganttScale.value !== 'days' && (plannerFilter === 'today' || plannerFilter === 'five-days')) {
+        ganttScale.value = 'days';
+        if (plannerFilter === 'five-days') {
+          navigate(ganttVisibleStart, ganttVisibleStart);
+          break;
+        }
+      }
       if (plannerFilter === 'today') goToToday();
       else renderCalendar();
       break;
