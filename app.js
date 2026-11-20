@@ -42,6 +42,7 @@ let ganttStart;
 let ganttVisibleStart;
 let ganttDateCount;
 let plannerFilter = '';
+let selectedProjectId = '';
 let editing;
 let remoteItems = [];
 let remoteUser = null;
@@ -49,6 +50,7 @@ let remoteRequest = 0;
 const editor = byId('editor');
 const editForm = byId('edit-form');
 const calendarBody = byId('calendar-body');
+const projectFilter = byId('project-filter');
 const notes = byId('notes');
 const taskDescription = byId('task-description');
 const notesToolbar = byId('notes-toolbar');
@@ -902,9 +904,15 @@ function renderGantt(start, today, scrollLeft) {
   const namesHeading = plannerNamesHeading();
   namesHeading.rowSpan = 3;
   namesHeading.append(byId('toggle-standalone-panel'));
+  const projects = [...state.projects].sort((first, second) =>
+    first.title.localeCompare(second.title, 'en', { sensitivity: 'base', numeric: true }));
+  projectFilter.replaceChildren(new Option('All projects', ''), ...projects.map(project => new Option(project.title, project.id)));
+  if (!projects.some(project => project.id === selectedProjectId)) selectedProjectId = '';
+  projectFilter.value = selectedProjectId;
+  namesHeading.append(projectFilter);
   weekdays.append(namesHeading);
   const plannerRows = [];
-  addPlannerRows(table, (row, entry, collection, draftFor) => plannerRows.push({ row, entry, collection, draftFor }));
+  addPlannerRows(table, (row, entry, collection, draftFor) => plannerRows.push({ row, entry, collection, draftFor }), selectedProjectId);
   chart.append(table);
   calendarBody.replaceChildren(chart);
 
@@ -1012,7 +1020,7 @@ function plannerNamesHeading() {
   return heading;
 }
 
-function addPlannerRows(table, addDateCells = () => {}) {
+function addPlannerRows(table, addDateCells, projectId = '') {
   const body = table.createTBody();
   function addRow(entry, collection, child = false, draftFor) {
     const row = body.insertRow();
@@ -1075,11 +1083,13 @@ function addPlannerRows(table, addDateCells = () => {}) {
     return row;
   }
   const includeAllStandalone = plannerFilter === 'unassigned';
-  for (const task of standaloneTasks().filter(task => includeAllStandalone || task.date || task.inGantt)) {
+  const standalone = projectId ? [] : standaloneTasks();
+  for (const task of standalone.filter(task => includeAllStandalone || task.date || task.inGantt)) {
     addRow(task, 'tasks');
     addDraft(task, 'tasks', null);
   }
   for (const project of state.projects) {
+    if (projectId && project.id !== projectId) continue;
     const row = addRow(project, 'projects');
     const children = [addDraft(project, 'projects', project.id)].filter(Boolean);
     for (const task of state.tasks.filter(task => task.projectId === project.id)) {
@@ -1202,7 +1212,7 @@ function renderCalendar(resetScroll = false) {
   byId('next').setAttribute('aria-label', view === 'days' ? 'Next page of dates' : 'Next day');
   const dateNavigation = byId('date-navigation');
   const panelToggle = byId('toggle-standalone-panel');
-  const restoreToggleFocus = document.activeElement === panelToggle;
+  const focusedControl = document.activeElement;
   const projectNavigation = byId('add-project').parentElement;
   if (view === 'hours' && panelToggle.parentElement !== projectNavigation) projectNavigation.append(panelToggle);
   const navigationParent = view === 'days' ? calendarBody.parentElement : projectNavigation;
@@ -1232,7 +1242,9 @@ function renderCalendar(resetScroll = false) {
     calendarBody.querySelector('.gantt-scroll').scrollTop = scrollTop;
     ganttWidth = calendarBody.clientWidth;
   }
-  if (restoreToggleFocus) panelToggle.focus({ preventScroll: true });
+  if (focusedControl === panelToggle || (view === 'days' && focusedControl === projectFilter)) {
+    focusedControl.focus({ preventScroll: true });
+  }
 }
 
 function changeView(nextView) {
@@ -1266,6 +1278,11 @@ function goToToday() {
 
 byId('days').onclick = () => changeView('days');
 byId('hours').onclick = () => changeView('hours');
+projectFilter.addEventListener('change', event => {
+  selectedProjectId = event.target.value;
+  if (selectedProjectId) plannerFilter = '';
+  renderCalendar();
+});
 byId('planner-actions').addEventListener('change', event => {
   const action = event.target.value;
   event.target.value = '';

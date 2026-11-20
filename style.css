@@ -64,6 +64,7 @@ h2 { font-size: 1.15rem; }
 .gantt-month span { position: absolute; inset-block-start: 0; inset-inline-start: 2px; white-space: nowrap; pointer-events: none; }
 .gantt-scroll .gantt-names { text-align: left; }
 .gantt-names #toggle-standalone-panel { margin-inline-start: .75rem; min-width: 1.65rem; padding: 0 .35rem; }
+#project-filter { max-width: 18ch; margin-inline: .4rem; padding: .1rem .25rem; vertical-align: middle; }
 .gantt thead .weekend { background: #ddd6c0; }
 .gantt thead .current-day { background: #ffd8ab; }
 .gantt .gantt-names, .gantt-row-label { position: sticky; left: 0; z-index: 1; }
