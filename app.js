@@ -732,6 +732,41 @@ function scheduledBetween(entry, firstDate, lastDate, collection) {
     (collection === 'tasks' && entry.extraDates?.some(date => date >= firstDate && date <= lastDate));
 }
 
+function printItems() {
+  const today = new Date();
+  const firstDate = dateKey(today);
+  const lastDate = dateKey(shift(today, 2));
+  const items = [
+    ...state.tasks.filter(task => !task.date || scheduledBetween(task, firstDate, lastDate, 'tasks')),
+    ...state.projects.filter(project => scheduledBetween(project, firstDate, lastDate, 'projects'))
+  ].sort((first, second) => first.title.localeCompare(second.title, 'en', { sensitivity: 'base', numeric: true }));
+
+  const report = byId('print-items');
+  const table = element('table');
+  const header = table.createTHead().insertRow();
+  header.append(element('th', '', 'Item'), element('th', '', 'Date'));
+  const body = table.createTBody();
+  const formatDate = key => format(parseDate(key), { month: 'short', day: 'numeric', year: 'numeric' });
+  for (const item of items) {
+    const dates = [];
+    if (item.date) {
+      const end = item.endDate > item.date ? item.endDate : item.date;
+      if (item.date <= lastDate && end >= firstDate) {
+        dates.push(end === item.date ? formatDate(item.date) : formatDate(item.date) + ' – ' + formatDate(end));
+      }
+      for (const date of item.extraDates || []) {
+        if (date >= firstDate && date <= lastDate && (date < item.date || date > end)) dates.push(formatDate(date));
+      }
+    }
+    const row = body.insertRow();
+    row.append(element('td', '', item.title), element('td', '', dates.join(', ')));
+  }
+  report.replaceChildren(element('h1', '', 'Planner items'), items.length ? table : element('p', '', 'No items to print.'));
+  report.hidden = false;
+  window.addEventListener('afterprint', () => { report.hidden = true; }, { once: true });
+  window.print();
+}
+
 function filterPlannerRows(rows, firstDate, lastDate) {
   const matchingEntries = new Set();
   const matchingProjects = new Set();
@@ -1369,6 +1404,9 @@ byId('planner-actions').addEventListener('change', event => {
     }
     case 'sort':
       commit([{ collection: 'projects', sortByTitle: true }]);
+      break;
+    case 'print':
+      printItems();
       break;
   }
 });

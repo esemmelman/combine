@@ -4,11 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Combine · Planner</title>
-  <link rel="stylesheet" href="style.css?v=65">
+  <link rel="stylesheet" href="style.css?v=66">
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0"></script>
   <script defer src="dayflow-config.js"></script>
   <script defer src="planner-sync.js?v=9"></script>
-  <script defer src="app.js?v=67"></script>
+  <script defer src="app.js?v=68"></script>
 </head>
 <body>
   <div id="notice" class="sr-only" role="status"></div>
@@ -61,6 +61,7 @@
             <option value="five-days">5 Days</option>
             <option value="unassigned">Unassigned</option>
             <option value="sort">Sort Projects</option>
+            <option value="print">Print items</option>
           </select>
           <select id="gantt-scale" aria-label="Gantt chart scale">
             <option value="days">Days</option>
@@ -74,6 +75,7 @@
       </div>
     </section>
   </main>
+  <section id="print-items" aria-label="Planner items" hidden></section>
   <dialog id="editor" aria-labelledby="edit-title">
     <div id="editor-dictation-status" class="sr-only" role="status"></div>
     <form id="edit-form">

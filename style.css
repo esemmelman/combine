@@ -13,6 +13,15 @@
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
+#print-items { display: none; }
+@media print {
+  :root:has(#print-items:not([hidden])) { background: white; color: black; }
+  body:has(> #print-items:not([hidden])) > :not(#print-items) { display: none; }
+  #print-items:not([hidden]) { display: block; }
+  #print-items table { width: 100%; border-collapse: collapse; }
+  #print-items tr { break-inside: avoid; }
+  #print-items th, #print-items td { text-align: left; vertical-align: top; padding: .25rem .5rem; border-bottom: 1px solid #ccc; }
+}
 body { margin: 0; }
 button, input, select { font: inherit; }
 button, input, select { border: 1px solid var(--line); border-radius: 8px; padding: .45rem .7rem; background: white; color: inherit; }
