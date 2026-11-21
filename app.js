@@ -1338,7 +1338,7 @@ function renderCalendar(resetScroll = false) {
       schedule.scrollLeft = scrollLeft;
     }
   } else {
-    const previousScroll = !resetScroll && ganttStart ? scrollLeft : undefined;
+    const previousScroll = resetScroll ? undefined : scrollLeft;
     ganttStart ??= selected;
     ganttColumnCount = renderGantt(ganttStart, today, previousScroll);
     calendarBody.querySelector('.gantt-scroll').scrollTop = scrollTop;
@@ -1642,7 +1642,7 @@ byId('toggle-standalone-panel').onclick = event => {
   toggle.setAttribute('aria-label', panel.hidden ? 'Show standalone tasks' : 'Hide standalone tasks');
   toggle.textContent = panel.hidden ? '›' : '‹';
 };
-renderCalendar(true);
+renderCalendar();
 new ResizeObserver(() => {
   if (view === 'days' && calendarBody.clientWidth !== ganttWidth) renderCalendar();
 }).observe(calendarBody);
