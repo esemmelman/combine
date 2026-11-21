@@ -1342,6 +1342,11 @@ byId('planner-actions').addEventListener('change', event => {
   const action = event.target.value;
   event.target.value = '';
   switch (action) {
+    case 'normal':
+      plannerFilter = '';
+      selectedProjectId = '';
+      renderCalendar();
+      break;
     case 'today':
     case 'five-days':
     case 'unassigned':
