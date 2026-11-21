@@ -732,7 +732,14 @@ function scheduledBetween(entry, firstDate, lastDate, collection) {
     (collection === 'tasks' && entry.extraDates?.some(date => date >= firstDate && date <= lastDate));
 }
 
-function printItems() {
+function showItemsReport() {
+  const reportWindow = window.open('', '_blank', 'popup,width=720,height=640');
+  if (!reportWindow) {
+    alert('Allow pop-ups for Combine to open the items list.');
+    return;
+  }
+  reportWindow.opener = null;
+
   const today = new Date();
   const firstDate = dateKey(today);
   const lastDate = dateKey(shift(today, 2));
@@ -741,7 +748,15 @@ function printItems() {
     ...state.projects.filter(project => scheduledBetween(project, firstDate, lastDate, 'projects'))
   ].sort((first, second) => first.title.localeCompare(second.title, 'en', { sensitivity: 'base', numeric: true }));
 
-  const report = byId('print-items');
+  const projectTitles = new Map(state.projects.map(project => [project.id, project.title]));
+  const reportDocument = reportWindow.document;
+  reportDocument.title = 'Planner items';
+  reportDocument.documentElement.lang = document.documentElement.lang;
+  const stylesheet = element('link');
+  stylesheet.rel = 'stylesheet';
+  stylesheet.href = document.querySelector('link[rel="stylesheet"]').href;
+  reportDocument.head.append(stylesheet);
+  reportDocument.body.className = 'items-report';
   const table = element('table');
   const header = table.createTHead().insertRow();
   header.append(element('th', '', 'Item'), element('th', '', 'Date'));
@@ -759,12 +774,11 @@ function printItems() {
       }
     }
     const row = body.insertRow();
-    row.append(element('td', '', item.title), element('td', '', dates.join(', ')));
+    const projectTitle = projectTitles.get(item.projectId);
+    const title = projectTitle ? item.title + ' (' + projectTitle + ')' : item.title;
+    row.append(element('td', '', title), element('td', '', dates.join(', ')));
   }
-  report.replaceChildren(element('h1', '', 'Planner items'), items.length ? table : element('p', '', 'No items to print.'));
-  report.hidden = false;
-  window.addEventListener('afterprint', () => { report.hidden = true; }, { once: true });
-  window.print();
+  reportDocument.body.append(element('h1', '', 'Planner items'), items.length ? table : element('p', '', 'No items in this list.'));
 }
 
 function filterPlannerRows(rows, firstDate, lastDate) {
@@ -1406,7 +1420,7 @@ byId('planner-actions').addEventListener('change', event => {
       commit([{ collection: 'projects', sortByTitle: true }]);
       break;
     case 'print':
-      printItems();
+      showItemsReport();
       break;
   }
 });

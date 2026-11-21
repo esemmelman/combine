@@ -13,15 +13,10 @@
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
-#print-items { display: none; }
-@media print {
-  :root:has(#print-items:not([hidden])) { background: white; color: black; }
-  body:has(> #print-items:not([hidden])) > :not(#print-items) { display: none; }
-  #print-items:not([hidden]) { display: block; }
-  #print-items table { width: 100%; border-collapse: collapse; }
-  #print-items tr { break-inside: avoid; }
-  #print-items th, #print-items td { text-align: left; vertical-align: top; padding: .25rem .5rem; border-bottom: 1px solid #ccc; }
-}
+.items-report { min-height: 100vh; padding: 1rem; background: white; }
+.items-report h1 { margin: 0 0 .75rem; }
+.items-report table { width: 100%; border-collapse: collapse; }
+.items-report th, .items-report td { text-align: left; vertical-align: top; padding: .35rem .5rem; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
 body { margin: 0; }
 button, input, select { font: inherit; }
 button, input, select { border: 1px solid var(--line); border-radius: 8px; padding: .45rem .7rem; background: white; color: inherit; }
