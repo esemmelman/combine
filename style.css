@@ -64,6 +64,7 @@ h2 { font-size: 1.15rem; }
 .gantt-scroll thead { position: sticky; top: 0; z-index: 2; }
 .gantt-day { width: var(--gantt-day-width); min-width: var(--gantt-day-width); }
 .gantt-outside-range { display: none; }
+.gantt-label-filtered > * { visibility: hidden; }
 .gantt-month { position: relative; }
 .gantt-month span { position: absolute; inset-block-start: 0; inset-inline-start: 2px; white-space: nowrap; pointer-events: none; }
 .gantt-scroll .gantt-names { text-align: left; }

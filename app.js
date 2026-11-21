@@ -574,7 +574,11 @@ for (const toolbar of [descriptionToolbar, notesToolbar]) {
     }
     document.execCommand('styleWithCSS', false, false);
     if (control.dataset.command === 'dateStamp') {
-      document.execCommand('insertText', false, format(new Date(), { dateStyle: 'short' }));
+      const now = new Date();
+      const date = format(now, { dateStyle: 'short' });
+      const time = timeLabel(now.getHours() * 60 + now.getMinutes()).toLowerCase();
+      const stamp = element('strong', '', date + ' ' + time);
+      document.execCommand('insertHTML', false, stamp.outerHTML);
     } else {
       document.execCommand(control.dataset.command);
     }
@@ -743,7 +747,13 @@ function filterPlannerRows(rows, firstDate, lastDate) {
     const anchor = draftFor || entry;
     const isVisible = matchingEntries.has(anchor) ||
       ((draftFor || collection === 'projects') && matchingProjects.has(anchor?.id));
-    row.classList.toggle('gantt-outside-range', !isVisible);
+    if (plannerFilter === 'unassigned' && row.closest('.gantt-scroll')) {
+      const label = row.firstElementChild;
+      label.inert = !isVisible;
+      label.classList.toggle('gantt-label-filtered', !isVisible);
+    } else {
+      row.classList.toggle('gantt-outside-range', !isVisible);
+    }
   }
 }
 
@@ -760,7 +770,7 @@ function standaloneTasks() {
 }
 
 function renderStandalonePanel() {
-  const tasks = plannerFilter === 'unassigned' ? [] : standaloneTasks();
+  const tasks = standaloneTasks();
   byId('standalone-tasks').replaceChildren(...tasks.filter(task => !task.date && !task.inGantt).map(task => {
     const name = button(task.title, null, () => openEditor(task, 'tasks'), 'standalone-task');
     name.addEventListener('contextmenu', event => openItemMenu(event, task, 'tasks'));
@@ -1119,9 +1129,8 @@ function addPlannerRows(table, addDateCells, projectId = '') {
     row.firstElementChild.append(inlineTaskForm(formId, entry, collection, projectId));
     return row;
   }
-  const includeAllStandalone = plannerFilter === 'unassigned';
   const standalone = projectId ? [] : standaloneTasks();
-  for (const task of standalone.filter(task => includeAllStandalone || task.date || task.inGantt)) {
+  for (const task of standalone.filter(task => task.date || task.inGantt)) {
     addRow(task, 'tasks');
     addDraft(task, 'tasks', null);
   }
@@ -1153,6 +1162,12 @@ function addPlannerRows(table, addDateCells, projectId = '') {
     toggle.id = 'project-toggle-' + project.id;
     row.firstElementChild.prepend(toggle);
     updateDisclosure();
+  }
+  if (plannerFilter === 'unassigned') {
+    for (const task of standalone.filter(task => !task.date && !task.inGantt)) {
+      addRow(task, 'tasks');
+      addDraft(task, 'tasks', null);
+    }
   }
   if (!body.rows.length) addRow();
 }
@@ -1196,7 +1211,7 @@ function renderSchedule(key) {
   schedule.tabIndex = 0;
   schedule.setAttribute('role', 'region');
   schedule.setAttribute('aria-label', 'Hourly schedule');
-  const entries = plannerFilter === 'unassigned' ? [] : scheduledEntries(key);
+  const entries = scheduledEntries(key);
   const dayFlowItems = (remoteUser ? remoteItems : device.backup).filter(item => item.date === key);
   const hours = Array.from({ length: 17 }, (_, index) => index + 6);
   const grid = element('div', 'times-grid');
